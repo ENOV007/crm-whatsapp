@@ -1,0 +1,481 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { ticketsAPI } from '../services/api';
+
+function TicketDetail({ user }) {
+  const { id } = useParams();
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [comment, setComment] = useState('');
+  const [isActionPlan, setIsActionPlan] = useState(false);
+  const [approveDeadline, setApproveDeadline] = useState('');
+  const [approvePriority, setApprovePriority] = useState('BAJA');
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [editDeadline, setEditDeadline] = useState('');
+  const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+  const [editPriority, setEditPriority] = useState('');
+  const [isEditingPriority, setIsEditingPriority] = useState(false);
+
+  useEffect(() => {
+    fetchTicket();
+  }, [id]);
+
+  const fetchTicket = async () => {
+    try {
+      const res = await ticketsAPI.getById(id);
+      setTicket(res.data);
+    } catch (error) {
+      console.error('Error fetching ticket:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!comment.trim()) return;
+
+    try {
+      await ticketsAPI.addComment(id, { content: comment, isActionPlan });
+      setComment('');
+      setIsActionPlan(false);
+      fetchTicket();
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
+  };
+
+  const handleStatusChange = async (newStatus, deadline = null, priority = null) => {
+    try {
+      const data = { status: newStatus };
+      if (deadline) data.deadline = deadline;
+      if (priority) data.priority = priority;
+      await ticketsAPI.update(id, data);
+      fetchTicket();
+    } catch (error) {
+      console.error('Error updating status:', error);
+    }
+  };
+
+  const handleApprove = () => {
+    if (!approveDeadline) {
+      alert('Debes seleccionar una fecha límite para aprobar.');
+      return;
+    }
+    handleStatusChange('APROBADO', approveDeadline, approvePriority);
+    setShowApproveModal(false);
+    setApproveDeadline('');
+    setApprovePriority('BAJA');
+  };
+
+  const handleSaveDeadline = async () => {
+    if (!editDeadline) {
+      alert('Debes seleccionar una fecha límite.');
+      return;
+    }
+    try {
+      await ticketsAPI.update(id, { deadline: editDeadline });
+      setIsEditingDeadline(false);
+      fetchTicket();
+    } catch (error) {
+      console.error('Error updating deadline:', error);
+    }
+  };
+
+  const getMinDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  const handleSavePriority = async () => {
+    try {
+      await ticketsAPI.update(id, { priority: editPriority });
+      setIsEditingPriority(false);
+      fetchTicket();
+    } catch (error) {
+      console.error('Error updating priority:', error);
+    }
+  };
+
+  const getStatusClass = (status) => {
+    const classes = {
+      PENDIENTE_PASTORA: 'status-pending',
+      APROBADO: 'status-approved',
+      RECHAZADO: 'status-rejected',
+      EN_PROGRESO: 'status-progress',
+      COMPLETADO: 'status-completed'
+    };
+    return classes[status] || '';
+  };
+
+  const getStatusText = (status) => {
+    const texts = {
+      PENDIENTE_PASTORA: 'Pendiente Pastora',
+      APROBADO: 'Aprobado',
+      RECHAZADO: 'Rechazado',
+      EN_PROGRESO: 'En Progreso',
+      COMPLETADO: 'Completado'
+    };
+    return texts[status] || status;
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Cargando ticket...</div>;
+  }
+
+  if (!ticket) {
+    return <div className="text-center py-8">Ticket no encontrado</div>;
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <Link to={`/groups/${ticket.group.id}`} className="text-blue-600 hover:underline">
+          ← Volver a {ticket.group.name}
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Ticket Info */}
+        <div className="lg:col-span-2">
+          <div className="card mb-6">
+            <div className="flex justify-between items-start mb-4">
+              <h1 className="text-2xl font-bold">{ticket.title}</h1>
+              <span className={getStatusClass(ticket.status)}>
+                {getStatusText(ticket.status)}
+              </span>
+            </div>
+            
+            <p className="text-gray-600 mb-4">{ticket.description}</p>
+
+            {ticket.deadline && (
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg mb-4 ${
+                new Date(ticket.deadline) < new Date() && ticket.status !== 'COMPLETADO'
+                  ? 'bg-red-100 border border-red-300 text-red-800'
+                  : 'bg-blue-50 border border-blue-200 text-blue-800'
+              }`}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="font-semibold">
+                  {new Date(ticket.deadline) < new Date() && ticket.status !== 'COMPLETADO'
+                    ? 'VENCIDO:'
+                    : 'Fecha límite:'
+                  }
+                </span>
+                <span className="font-bold">
+                  {new Date(ticket.deadline).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+              </div>
+            )}
+            
+            <div className="flex items-center space-x-4 text-sm text-gray-500">
+              <span>Creado: {new Date(ticket.createdAt).toLocaleDateString()}</span>
+              <span>Grupo: {ticket.group.name}</span>
+            </div>
+          </div>
+
+          {/* Comments */}
+          <div className="card">
+            <h2 className="text-xl font-semibold mb-4">Comentarios y Planes de Acción</h2>
+            
+            {ticket.comments.length === 0 ? (
+              <p className="text-gray-500 mb-4">No hay comentarios aún.</p>
+            ) : (
+              <div className="space-y-4 mb-6">
+                {ticket.comments.map(c => (
+                  <div
+                    key={c.id}
+                    className={`p-4 rounded-lg ${
+                      c.isActionPlan ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-medium">{c.user.name}</span>
+                      {c.isActionPlan && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                          Plan de Acción
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-700">{c.content}</p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {new Date(c.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add Comment Form */}
+            <form onSubmit={handleAddComment}>
+              <div className="mb-4">
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Escribe un comentario o plan de acción..."
+                  className="input-field"
+                  rows={3}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={isActionPlan}
+                    onChange={(e) => setIsActionPlan(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm text-gray-600">Es un plan de acción</span>
+                </label>
+                <button type="submit" className="btn-primary">
+                  Agregar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div>
+          {/* Status Actions (Pastora only) */}
+          {user.role === 'PASTORA' && (
+            <div className="card mb-6">
+              <h2 className="text-xl font-semibold mb-4">Gestionar Estado</h2>
+              <div className="space-y-2">
+                {ticket.status === 'PENDIENTE_PASTORA' && (
+                  <>
+                    <button
+                      onClick={() => setShowApproveModal(true)}
+                      className="btn-primary w-full"
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      onClick={() => handleStatusChange('RECHAZADO')}
+                      className="btn-danger w-full"
+                    >
+                      Rechazar
+                    </button>
+                  </>
+                )}
+                {ticket.status === 'APROBADO' && (
+                  <button
+                    onClick={() => handleStatusChange('EN_PROGRESO')}
+                    className="btn-primary w-full"
+                  >
+                    Iniciar Progreso
+                  </button>
+                )}
+                {ticket.status === 'EN_PROGRESO' && (
+                  <button
+                    onClick={() => handleStatusChange('COMPLETADO')}
+                    className="btn-primary w-full"
+                  >
+                    Marcar Completado
+                  </button>
+                )}
+                {ticket.status === 'COMPLETADO' && (
+                  <p className="text-green-600 text-center py-2">
+                    ✓ Este ticket está completado
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Ticket Info */}
+          <div className="card">
+            <h2 className="text-xl font-semibold mb-4">Información</h2>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Estado:</dt>
+                <dd className={getStatusClass(ticket.status)}>
+                  {getStatusText(ticket.status)}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Sugerencia de:</dt>
+                <dd className="font-medium">Miembro activo</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Fecha creación:</dt>
+                <dd>{new Date(ticket.createdAt).toLocaleDateString()}</dd>
+              </div>
+              <div className="flex justify-between items-center">
+                <dt className="text-gray-500 font-bold">Fecha límite:</dt>
+                {isEditingDeadline ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={editDeadline}
+                      onChange={(e) => setEditDeadline(e.target.value)}
+                      min={getMinDate()}
+                      className="border rounded px-2 py-1 text-sm"
+                    />
+                    <button
+                      onClick={handleSaveDeadline}
+                      className="text-green-600 hover:text-green-800 text-sm font-medium"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={() => setIsEditingDeadline(false)}
+                      className="text-gray-400 hover:text-gray-600 text-sm"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    {ticket.deadline ? (
+                      <dd className={
+                        new Date(ticket.deadline) < new Date() && ticket.status !== 'COMPLETADO'
+                          ? 'text-red-600 font-bold'
+                          : 'font-bold'
+                      }>
+                        {new Date(ticket.deadline).toLocaleDateString()}
+                      </dd>
+                    ) : (
+                      <dd className="text-gray-400 italic">Sin fecha</dd>
+                    )}
+                    {user.role === 'PASTORA' && (
+                      <button
+                        onClick={() => {
+                          setEditDeadline(ticket.deadline ? ticket.deadline.split('T')[0] : getMinDate());
+                          setIsEditingDeadline(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between items-center">
+                <dt className="text-gray-500 font-bold">Prioridad:</dt>
+                {isEditingPriority ? (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={editPriority}
+                      onChange={(e) => setEditPriority(e.target.value)}
+                      className="border rounded px-2 py-1 text-sm"
+                    >
+                      <option value="ALTA">Alta</option>
+                      <option value="MEDIA">Media</option>
+                      <option value="BAJA">Baja</option>
+                    </select>
+                    <button
+                      onClick={handleSavePriority}
+                      className="text-green-600 hover:text-green-800 text-sm font-medium"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={() => setIsEditingPriority(false)}
+                      className="text-gray-400 hover:text-gray-600 text-sm"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    {ticket.priority ? (
+                      <dd className={`font-bold ${
+                        ticket.priority === 'ALTA' ? 'text-red-600' :
+                        ticket.priority === 'MEDIA' ? 'text-yellow-600' :
+                        'text-green-600'
+                      }`}>
+                        Prioridad: • {ticket.priority}
+                      </dd>
+                    ) : (
+                      <dd className="text-gray-400 italic">Sin asignar</dd>
+                    )}
+                    {user.role === 'PASTORA' && (
+                      <button
+                        onClick={() => {
+                          setEditPriority(ticket.priority || 'BAJA');
+                          setIsEditingPriority(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Última actualización:</dt>
+                <dd>{new Date(ticket.updatedAt).toLocaleDateString()}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      {/* Approve Modal */}
+      {showApproveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-xl font-bold mb-2">Aprobar Sugerencia</h3>
+            <p className="text-gray-600 mb-4">
+              Estás por aprobar "<strong>{ticket.title}</strong>". Establece una fecha límite de entrega:
+            </p>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Fecha límite *</label>
+              <input
+                type="date"
+                value={approveDeadline}
+                onChange={(e) => setApproveDeadline(e.target.value)}
+                min={getMinDate()}
+                className="input-field w-full"
+                required
+              />
+            </div>
+            <div className="mb-6">
+              <label className="block text-gray-700 mb-2">Prioridad</label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'ALTA', label: 'Alta', color: 'bg-red-100 border-red-300 text-red-700 hover:bg-red-200' },
+                  { value: 'MEDIA', label: 'Media', color: 'bg-yellow-100 border-yellow-300 text-yellow-700 hover:bg-yellow-200' },
+                  { value: 'BAJA', label: 'Baja', color: 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200' }
+                ].map(p => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setApprovePriority(p.value)}
+                    className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                      approvePriority === p.value
+                        ? `${p.color} ring-2 ring-offset-1 ring-blue-400`
+                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    • {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => { setShowApproveModal(false); setApproveDeadline(''); setApprovePriority('MEDIA'); }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleApprove}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+              >
+                Aprobar con Fecha
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default TicketDetail;

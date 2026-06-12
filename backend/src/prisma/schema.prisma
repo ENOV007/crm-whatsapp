@@ -1,0 +1,119 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password      String
+  phone         String?
+  role          Role      @default(MEMBER)
+  mustChangePassword Boolean @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  groups        UserGroup[]
+  tickets       Ticket[]      @relation("TicketCreator")
+  comments      Comment[]
+  notifications Notification[]
+}
+
+enum Role {
+  ADMIN
+  PASTORA
+  MEMBER
+}
+
+model Group {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  whatsappGroupId String?
+  isPrivate     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members UserGroup[]
+  tickets Ticket[]
+}
+
+model UserGroup {
+  id        String   @id @default(uuid())
+  userId    String
+  groupId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, groupId])
+}
+
+model Ticket {
+  id          String     @id @default(uuid())
+  title       String
+  description String
+  status      TicketStatus @default(PENDIENTE_PASTORA)
+  priority    TicketPriority?
+  deadline    DateTime?
+  hidden      Boolean    @default(false)
+  groupId     String
+  createdById String
+  group       Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator     User       @relation("TicketCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  comments      Comment[]
+  notifications Notification[]
+
+  @@index([groupId])
+  @@index([status])
+  @@index([deadline])
+}
+
+enum TicketStatus {
+  PENDIENTE_PASTORA
+  APROBADO
+  EN_PROGRESO
+  COMPLETADO
+  RECHAZADO
+}
+
+enum TicketPriority {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+model Comment {
+  id            String   @id @default(uuid())
+  ticketId      String
+  userId        String
+  content       String
+  isActionPlan  Boolean  @default(false)
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  ticketId  String?
+  message   String
+  read      Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}

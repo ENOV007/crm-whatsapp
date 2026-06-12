@@ -1,0 +1,10 @@
+[09:09, 11/6/2026] Edu: Es una aplicacion y página donde se gestionan los proyectos, dividid en grupos, con la pastora como cabeza, cada usuario se hace su cuenta e ingresa a su grupo, cada grupo esta dividido uno de otro con grupo de whatsapp imdependiente donde solo escribe el bot. Un usuario hace una sugerencia anonima al grupo 1 o "Musicos" le llega al grupo la peticion de manera informativa y a la pastora la solicitud de aprobar, denegar/ poner plazo. Entonces se actualiza en el grupo de musicos su lista de tareas, por ejemplo, la sugerencia es "poner un tecladista" la pastora aprueba y pone plazo, al grupo de musicos le llega la solicitud con el tiempo restante o fecha de entrega y boton de plan de accion como respuesta, por ejemplo "vamos a capacitar a tal persona en canciones simples para tal fecha".
+[09:14, 11/6/2026] Edu: La pastora tiene como lista, los pendientes en su grupo, actualizandose con los plazos y vencidos o atrazados con los días y fuera de plazo en rojo.
+[09:15, 11/6/2026] Edu: Cada persona hace sugerencias a los otros grupos de forma anonima
+[09:15, 11/6/2026] Edu: Los grupos tienen que se de whatspp y dinamicos
+[09:16, 11/6/2026] Edu: Enviar avisos cerca de plazos
+[09:17, 11/6/2026] Edu: Y lista de tareas con status periodicamente cada 3 dias o mas segun el pendiente
+[09:20, 11/6/2026] Edu: Historial visible por ticket o issue
+[09:22, 11/6/2026] Edu: Status por ticket "pendiente pastora"
+
+Sería la implementacion, - whatsapp - pagina web, por ejemplo todo el link en el mensaje de whatsapp me lleva a la página con soporte mobil

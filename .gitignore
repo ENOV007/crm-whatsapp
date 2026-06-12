@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.*
+!.env.example
+!.env.docker
+dist/
+build/
+backup-*
+*.zip
+*.rar
+*.bat
+.DS_Store
+Thumbs.db

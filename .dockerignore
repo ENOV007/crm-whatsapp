@@ -1,0 +1,8 @@
+node_modules
+.git
+*.zip
+*.rar
+backup-*
+*.bat
+.DS_Store
+Thumbs.db
