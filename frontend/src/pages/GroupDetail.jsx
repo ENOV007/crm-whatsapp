@@ -228,8 +228,12 @@ function GroupDetail({ user }) {
                     <p className="text-sm text-gray-500">{member.user.email}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                      {member.user.role === 'PASTORA' ? 'Pastora' : 'Miembro'}
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      member.user.role === 'PASTORA' ? 'bg-pink-100 text-pink-800' :
+                      member.isLeader ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {member.user.role === 'PASTORA' ? 'Pastora' : member.isLeader ? '⭐ Líder' : 'Miembro'}
                     </span>
                     {user.role === 'PASTORA' && member.user.role !== 'PASTORA' && (
                       <button

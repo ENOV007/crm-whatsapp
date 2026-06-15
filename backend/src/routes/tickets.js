@@ -84,7 +84,8 @@ router.get('/', auth, async (req, res) => {
       where.OR = [
         { visibility: 'PUBLIC' },
         { group: { members: { some: { userId: req.user.id } } }, visibility: 'PRIVATE' },
-        { viewers: { some: { userId: req.user.id } } }
+        { viewers: { some: { userId: req.user.id } } },
+        { createdById: req.user.id }
       ];
     }
 
@@ -237,10 +238,31 @@ router.patch('/:id', auth, async (req, res) => {
 
     const validPriorities = ['ALTA', 'MEDIA', 'BAJA'];
     const validVisibilities = ['PRIVATE', 'PUBLIC', 'USER_SPECIFIC'];
+    const validStatuses = ['PENDIENTE_PASTORA', 'APROBADO', 'RECHAZADO', 'EN_PROGRESO', 'COMPLETADO'];
+
+    const currentTicket = await prisma.ticket.findUnique({
+      where: { id },
+      select: { status: true, createdById: true, groupId: true }
+    });
+
+    if (!currentTicket) {
+      return res.status(404).json({ error: 'Ticket no encontrado.' });
+    }
 
     const updateData = {};
-    if (status) updateData.status = status;
+    if (status && validStatuses.includes(status)) updateData.status = status;
     if (deadline) updateData.deadline = new Date(deadline);
+    if (priority && validPriorities.includes(priority)) updateData.priority = priority;
+    if (visibility && validVisibilities.includes(visibility)) updateData.visibility = visibility;
+    if (groupId) updateData.groupId = groupId;
+
+    if (status === 'RECHAZADO') {
+      updateData.visibility = 'PRIVATE';
+      await prisma.ticketViewer.deleteMany({ where: { ticketId: id } });
+      await prisma.ticketViewer.create({
+        data: { ticketId: id, userId: currentTicket.createdById }
+      });
+    }
     if (priority && validPriorities.includes(priority)) updateData.priority = priority;
     if (visibility && validVisibilities.includes(visibility)) updateData.visibility = visibility;
     if (groupId) updateData.groupId = groupId;

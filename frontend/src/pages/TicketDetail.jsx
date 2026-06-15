@@ -15,6 +15,7 @@ function TicketDetail({ user }) {
   const [groupMembers, setGroupMembers] = useState([]);
   const [selectedViewerIds, setSelectedViewerIds] = useState([]);
   const [allGroups, setAllGroups] = useState([]);
+  const [isLeader, setIsLeader] = useState(false);
   const [editDeadline, setEditDeadline] = useState('');
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
   const [editPriority, setEditPriority] = useState('');
@@ -34,6 +35,16 @@ function TicketDetail({ user }) {
     try {
       const res = await ticketsAPI.getById(id);
       setTicket(res.data);
+      if (res.data.group?.id) {
+        try {
+          const groupRes = await groupsAPI.getById(res.data.group.id);
+          const members = groupRes.data.members || [];
+          const leaderMember = members.find(m => m.isLeader && m.user.id === user.id);
+          setIsLeader(!!leaderMember);
+        } catch (e) {
+          setIsLeader(false);
+        }
+      }
     } catch (error) {
       console.error('Error fetching ticket:', error);
     } finally {
@@ -299,7 +310,7 @@ function TicketDetail({ user }) {
                             Pedir Revisión
                           </button>
                         )}
-                        {c.reviewStatus === 'PENDING_REVIEW' && (user.role === 'PASTORA' || user.role === 'ADMIN') && (
+                        {c.reviewStatus === 'PENDING_REVIEW' && (user.role === 'PASTORA' || user.role === 'ADMIN' || isLeader) && (
                           <>
                             <button
                               onClick={async () => {
@@ -329,7 +340,7 @@ function TicketDetail({ user }) {
                             </button>
                           </>
                         )}
-                        {c.reviewStatus === 'PENDING_REVIEW' && user.role !== 'PASTORA' && user.role !== 'ADMIN' && (
+                        {c.reviewStatus === 'PENDING_REVIEW' && user.role !== 'PASTORA' && user.role !== 'ADMIN' && !isLeader && (
                           <span className="text-xs text-gray-400">Esperando revisión del líder</span>
                         )}
                       </div>
@@ -375,42 +386,51 @@ function TicketDetail({ user }) {
             <div className="card mb-6">
               <h2 className="text-xl font-semibold mb-4">Gestionar Ticket</h2>
               <div className="space-y-2">
-                {ticket.status === 'PENDIENTE_PASTORA' && (
+                {user.role === 'ADMIN' ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { status: 'PENDIENTE_PASTORA', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' },
+                      { status: 'APROBADO', label: 'Aprobar', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
+                      { status: 'RECHAZADO', label: 'Rechazar', color: 'bg-red-100 text-red-800 hover:bg-red-200' },
+                      { status: 'EN_PROGRESO', label: 'En Progreso', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },
+                      { status: 'COMPLETADO', label: 'Completar', color: 'bg-gray-100 text-gray-800 hover:bg-gray-200' }
+                    ].filter(s => s.status !== ticket.status).map(s => (
+                      <button
+                        key={s.status}
+                        onClick={() => {
+                          if (s.status === 'APROBADO') {
+                            setShowApproveModal(true);
+                          } else {
+                            handleStatusChange(s.status);
+                          }
+                        }}
+                        className={`px-3 py-2 rounded text-sm font-medium ${s.color}`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
                   <>
-                    <button
-                      onClick={() => setShowApproveModal(true)}
-                      className="btn-primary w-full"
-                    >
-                      Aprobar
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange('RECHAZADO')}
-                      className="btn-danger w-full"
-                    >
-                      Rechazar
-                    </button>
+                    {ticket.status === 'PENDIENTE_PASTORA' && (
+                      <>
+                        <button onClick={() => setShowApproveModal(true)} className="btn-primary w-full">Aprobar</button>
+                        <button onClick={() => handleStatusChange('RECHAZADO')} className="btn-danger w-full">Rechazar</button>
+                      </>
+                    )}
+                    {ticket.status === 'APROBADO' && (
+                      <button onClick={() => handleStatusChange('EN_PROGRESO')} className="btn-primary w-full">Iniciar Progreso</button>
+                    )}
+                    {ticket.status === 'EN_PROGRESO' && (
+                      <button onClick={() => handleStatusChange('COMPLETADO')} className="btn-primary w-full">Marcar Completado</button>
+                    )}
+                    {ticket.status === 'COMPLETADO' && (
+                      <p className="text-green-600 text-center py-2">✓ Este ticket está completado</p>
+                    )}
+                    {ticket.status === 'RECHAZADO' && (
+                      <p className="text-red-600 text-center py-2">✗ Ticket rechazado</p>
+                    )}
                   </>
-                )}
-                {ticket.status === 'APROBADO' && (
-                  <button
-                    onClick={() => handleStatusChange('EN_PROGRESO')}
-                    className="btn-primary w-full"
-                  >
-                    Iniciar Progreso
-                  </button>
-                )}
-                {ticket.status === 'EN_PROGRESO' && (
-                  <button
-                    onClick={() => handleStatusChange('COMPLETADO')}
-                    className="btn-primary w-full"
-                  >
-                    Marcar Completado
-                  </button>
-                )}
-                {ticket.status === 'COMPLETADO' && (
-                  <p className="text-green-600 text-center py-2">
-                    ✓ Este ticket está completado
-                  </p>
                 )}
               </div>
             </div>
@@ -428,7 +448,7 @@ function TicketDetail({ user }) {
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Sugerencia de:</dt>
-                <dd className="font-medium">Miembro activo</dd>
+                <dd className="font-medium">{ticket.creator?.name || 'Miembro activo'}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Fecha creación:</dt>
