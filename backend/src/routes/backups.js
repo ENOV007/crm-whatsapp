@@ -72,9 +72,13 @@ router.get('/drive-files', async (req, res) => {
     const result = await new Promise((resolve, reject) => {
       exec('rclone ls gdrive:CRM-Backups/ --max-age 30d', { timeout: 15000 }, (err, stdout, stderr) => {
         if (err && !stdout) return reject(err);
-        resolve(stdout);
+        resolve(stdout || '');
       });
     });
+
+    if (!result.trim()) {
+      return res.json([]);
+    }
 
     const files = result.trim().split('\n').filter(Boolean).map(line => {
       const parts = line.trim().split(/\s+/);
@@ -86,8 +90,8 @@ router.get('/drive-files', async (req, res) => {
 
     res.json(files);
   } catch (error) {
-    console.error('Error listing drive files:', error);
-    res.status(500).json({ error: 'Error al listar archivos en Drive.' });
+    console.error('Error listing drive files:', error.message);
+    res.json([]);
   }
 });
 
