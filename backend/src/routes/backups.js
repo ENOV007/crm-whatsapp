@@ -19,7 +19,7 @@ function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function dumpRow(cols, row) {
+function dumpRow(tableName, cols, row) {
   const values = cols.map(c => {
     const v = row[c];
     if (v === null) return 'NULL';
@@ -29,7 +29,7 @@ function dumpRow(cols, row) {
     if (typeof v === 'object') return `'${JSON.stringify(v).replace(/'/g, "''")}'`;
     return `'${String(v).replace(/'/g, "''")}'`;
   });
-  return `INSERT INTO "${cols.join('","')}" (${cols.map(c => `"${c}"`).join(',')}) VALUES (${values.join(',')});`;
+  return `INSERT INTO "${tableName}" (${cols.map(c => `"${c}"`).join(',')}) VALUES (${values.join(',')});`;
 }
 
 async function dumpDBToFile(filePath) {
@@ -53,7 +53,7 @@ async function dumpDBToFile(filePath) {
         sql += `-- Table: ${tablename} (${data.rows.length} rows)\n`;
         sql += `TRUNCATE TABLE "${tablename}" CASCADE;\n`;
         for (const row of data.rows) {
-          sql += dumpRow(cols, row) + '\n';
+          sql += dumpRow(tablename, cols, row) + '\n';
         }
         sql += '\n';
         rowCount += data.rows.length;
@@ -180,24 +180,26 @@ router.post('/download', async (req, res) => {
       const hasGit = fs.existsSync(path.join(repoRoot, '.git'));
       if (hasGit) {
         await execAsync(`git archive HEAD | tar -x -C "${codeDir}"`, { cwd: repoRoot });
-        const codeFiles = fs.readdirSync(codeDir);
-        if (codeFiles.length > 0) {
-          await execAsync(`tar -czf "${codeArchive}" -C "${codeDir}" .`);
-          fs.rmSync(codeDir, { recursive: true, force: true });
-          fs.mkdirSync(codeDir);
-        }
       } else {
-        const srcDir = path.join(repoRoot, 'src');
-        if (fs.existsSync(srcDir)) {
-          await execAsync(`cp -r "${srcDir}" "${codeDir}/src"`);
-          const pkgFile = path.join(repoRoot, 'package.json');
-          if (fs.existsSync(pkgFile)) {
-            fs.copyFileSync(pkgFile, path.join(codeDir, 'package.json'));
+        const appDir = '/app';
+        const copies = ['src', 'scripts', 'prisma', 'package.json', 'Dockerfile', 'entrypoint.sh'];
+        for (const item of copies) {
+          const src = path.join(appDir, item);
+          if (fs.existsSync(src)) {
+            const dest = path.join(codeDir, item);
+            if (fs.statSync(src).isDirectory()) {
+              await execAsync(`cp -r "${src}" "${dest}"`);
+            } else {
+              fs.copyFileSync(src, dest);
+            }
           }
-          await execAsync(`tar -czf "${codeArchive}" -C "${codeDir}" .`);
-          fs.rmSync(codeDir, { recursive: true, force: true });
-          fs.mkdirSync(codeDir);
         }
+      }
+      const codeFiles = fs.readdirSync(codeDir);
+      if (codeFiles.length > 0) {
+        await execAsync(`tar -czf "${codeArchive}" -C "${codeDir}" .`);
+        fs.rmSync(codeDir, { recursive: true, force: true });
+        fs.mkdirSync(codeDir);
       }
     } catch (codeErr) {
       console.error('Code archive error:', codeErr.message);
