@@ -174,36 +174,24 @@ router.post('/download', async (req, res) => {
     }
 
     const codeDir = path.join(tmpDir, 'code');
-    const codeArchive = path.join(tmpDir, 'code-archive.tar.gz');
     try {
-      const repoRoot = path.join(__dirname, '../../..');
-      const hasGit = fs.existsSync(path.join(repoRoot, '.git'));
-      if (hasGit) {
-        await execAsync(`git archive HEAD | tar -x -C "${codeDir}"`, { cwd: repoRoot });
-      } else {
-        const appDir = '/app';
-        const copies = ['src', 'scripts', 'prisma', 'package.json', 'Dockerfile', 'entrypoint.sh'];
-        for (const item of copies) {
-          const src = path.join(appDir, item);
-          if (fs.existsSync(src)) {
-            const dest = path.join(codeDir, item);
-            if (fs.statSync(src).isDirectory()) {
-              await execAsync(`cp -r "${src}" "${dest}"`);
-            } else {
-              fs.copyFileSync(src, dest);
-            }
+      const appDir = '/app';
+      const copies = ['src', 'scripts', 'prisma', 'package.json', 'Dockerfile', 'entrypoint.sh'];
+      for (const item of copies) {
+        const src = path.join(appDir, item);
+        if (fs.existsSync(src)) {
+          const dest = path.join(codeDir, item);
+          if (fs.statSync(src).isDirectory()) {
+            await execAsync(`cp -r "${src}" "${dest}"`);
+          } else {
+            fs.copyFileSync(src, dest);
           }
         }
       }
-      const codeFiles = fs.readdirSync(codeDir);
-      if (codeFiles.length > 0) {
-        await execAsync(`tar -czf "${codeArchive}" -C "${codeDir}" .`);
-        fs.rmSync(codeDir, { recursive: true, force: true });
-        fs.mkdirSync(codeDir);
-      }
+      console.log('Code files copied:', fs.readdirSync(codeDir));
     } catch (codeErr) {
-      console.error('Code archive error:', codeErr.message);
-      fs.writeFileSync(path.join(codeDir, 'error.txt'), codeErr.message || 'code archive failed');
+      console.error('Code copy error:', codeErr.message);
+      fs.writeFileSync(path.join(codeDir, 'error.txt'), codeErr.message || 'code copy failed');
     }
 
     const finalArchive = path.join(BACKUP_DIR, `${backupName}.tar.gz`);
