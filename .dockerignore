@@ -2,7 +2,10 @@ node_modules
 .git
 *.zip
 *.rar
-backup-*
+*.dump
+*.dump.gz
+*.sha256
 *.bat
 .DS_Store
 Thumbs.db
+SESION-RESUMEN-*
