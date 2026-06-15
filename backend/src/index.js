@@ -16,7 +16,7 @@ const prisma = new PrismaClient();
 
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:3000', 'https://frontend-production-f764.up.railway.app', 'https://frontend-production-e27a.up.railway.app'];
+  : ['http://localhost:3000', 'https://crm-familiayproposito.up.railway.app', 'https://frontend-production-f764.up.railway.app', 'https://frontend-production-e27a.up.railway.app'];
 
 app.use(cors({
   origin: (origin, callback) => {
