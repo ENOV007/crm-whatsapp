@@ -82,8 +82,7 @@ router.get('/', auth, async (req, res) => {
 
     if (req.user.role !== 'ADMIN' && req.user.role !== 'PASTORA') {
       where.OR = [
-        { visibility: 'PUBLIC' },
-        { group: { members: { some: { userId: req.user.id } } }, visibility: 'PRIVATE' },
+        { visibility: 'PUBLIC', group: { members: { some: { userId: req.user.id } } } },
         { viewers: { some: { userId: req.user.id } } },
         { createdById: req.user.id }
       ];
