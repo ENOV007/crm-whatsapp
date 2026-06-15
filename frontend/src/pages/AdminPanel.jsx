@@ -78,18 +78,38 @@ function AdminPanel({ user }) {
     }
   };
 
-  const handleTriggerBackup = async () => {
-    if (!confirm('¿Iniciar backup manual ahora?')) return;
+  const handleDownloadBackup = async () => {
     setBackupTriggering(true);
     try {
-      await backupAPI.trigger('manual');
-      alert('Backup iniciado. Los resultados se actualizarán en unos segundos.');
-      setTimeout(fetchBackupData, 5000);
+      const response = await backupAPI.download();
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = response.headers['content-disposition']?.split('filename=')[1] || 'crm-backup.tar.gz';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setTimeout(fetchBackupData, 2000);
     } catch (error) {
-      console.error('Error triggering backup:', error);
-      alert('Error al iniciar backup');
+      console.error('Error downloading backup:', error);
+      alert('Error al descargar backup');
     } finally {
       setBackupTriggering(false);
+    }
+  };
+
+  const handleAutoBackup = async (type) => {
+    const labels = { 'auto-db': 'DB a Drive', 'auto-code': 'Código a Drive', 'auto-cleanup': 'Limpieza' };
+    if (!confirm(`¿Ejecutar backup automático: ${labels[type]}?`)) return;
+    try {
+      await backupAPI.triggerAuto(type);
+      alert(`${labels[type]} iniciado.`);
+      setTimeout(fetchBackupData, 3000);
+    } catch (error) {
+      console.error('Error triggering auto backup:', error);
+      alert('Error al iniciar backup automático');
     }
   };
 
@@ -694,34 +714,68 @@ function AdminPanel({ user }) {
                 </div>
               </div>
 
-              {/* Trigger Backup Button */}
+              {/* Backup Actions */}
               <div className="card mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold">Backup Manual</h3>
-                    <p className="text-sm text-gray-500">Ejecutar backup de DB y código ahora</p>
-                  </div>
-                  <button
-                    onClick={handleTriggerBackup}
-                    disabled={backupTriggering}
-                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {backupTriggering ? (
-                      <>
+                <h3 className="font-semibold mb-4">Acciones de Backup</h3>
+
+                {/* Manual Download */}
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-green-800">Descargar Backup Completo</p>
+                      <p className="text-sm text-green-600">DB + código fuente en un .tar.gz para tu máquina</p>
+                    </div>
+                    <button
+                      onClick={handleDownloadBackup}
+                      disabled={backupTriggering}
+                      className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {backupTriggering ? (
                         <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Ejecutando...
-                      </>
-                    ) : (
-                      <>
+                      ) : (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                         </svg>
-                        Backup Ahora
-                      </>
-                    )}
+                      )}
+                      Descargar Ahora
+                    </button>
+                  </div>
+                </div>
+
+                {/* Auto Backups - Independent */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <button
+                    onClick={() => handleAutoBackup('auto-db')}
+                    className="p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 text-left transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-blue-600 text-lg">🗄️</span>
+                      <span className="font-medium">DB → Drive</span>
+                    </div>
+                    <p className="text-xs text-gray-500">Dump de PostgreSQL subido a Drive/daily</p>
+                  </button>
+                  <button
+                    onClick={() => handleAutoBackup('auto-code')}
+                    className="p-4 border-2 border-purple-200 rounded-lg hover:bg-purple-50 text-left transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-purple-600 text-lg">📦</span>
+                      <span className="font-medium">Código → Drive</span>
+                    </div>
+                    <p className="text-xs text-gray-500">git archive subido a Drive/weekly</p>
+                  </button>
+                  <button
+                    onClick={() => handleAutoBackup('auto-cleanup')}
+                    className="p-4 border-2 border-orange-200 rounded-lg hover:bg-orange-50 text-left transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-orange-600 text-lg">🧹</span>
+                      <span className="font-medium">Limpiar Drive</span>
+                    </div>
+                    <p className="text-xs text-gray-500">Borrar diarios &gt;7d y semanales &gt;28d</p>
                   </button>
                 </div>
               </div>

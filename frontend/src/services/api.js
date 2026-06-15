@@ -92,7 +92,8 @@ export const backupAPI = {
   getLogs: (params) => api.get('/backups/logs', { params }),
   getStats: () => api.get('/backups/stats'),
   getDriveFiles: () => api.get('/backups/drive-files'),
-  trigger: (type = 'manual') => api.post('/backups/trigger', { type })
+  triggerAuto: (type) => api.post('/backups/trigger-auto', { type }),
+  download: () => api.post('/backups/download', {}, { responseType: 'blob' })
 };
 
 export default api;
