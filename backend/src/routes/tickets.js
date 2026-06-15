@@ -385,11 +385,17 @@ router.post('/:ticketId/comments/:commentId/request-review', auth, async (req, r
       return res.status(400).json({ error: 'Este comentario ya tiene un estado de revisión.' });
     }
 
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { createdById: true }
+    });
+
+    const isCreator = ticket && ticket.createdById === req.user.id;
     const membership = await prisma.userGroup.findFirst({
       where: { userId: req.user.id, groupId: comment.ticket.groupId }
     });
 
-    if (!membership) {
+    if (!membership && !isCreator && req.user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'No eres miembro de este grupo.' });
     }
 
