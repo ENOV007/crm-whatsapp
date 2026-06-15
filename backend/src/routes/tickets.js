@@ -81,7 +81,8 @@ router.get('/', auth, async (req, res) => {
     if (req.user.role !== 'ADMIN' && req.user.role !== 'PASTORA') {
       where.OR = [
         { visibility: 'PUBLIC' },
-        { group: { members: { some: { userId: req.user.id } } } }
+        { group: { members: { some: { userId: req.user.id } } }, visibility: 'PRIVATE' },
+        { viewers: { some: { userId: req.user.id } } }
       ];
     }
 
@@ -97,6 +98,7 @@ router.get('/', auth, async (req, res) => {
         deadline: true,
         createdAt: true,
         group: { select: { id: true, name: true } },
+        viewers: { select: { user: { select: { id: true, name: true } } } },
         _count: { select: { comments: true } }
       },
       orderBy: { createdAt: 'desc' }
@@ -124,6 +126,7 @@ router.get('/pastora', auth, isPastora, async (req, res) => {
         deadline: true,
         createdAt: true,
         group: { select: { id: true, name: true } },
+        viewers: { select: { user: { select: { id: true, name: true } } } },
         _count: { select: { comments: true } }
       },
       orderBy: [
@@ -161,6 +164,7 @@ router.get('/all-visible', auth, async (req, res) => {
         hidden: true,
         createdAt: true,
         group: { select: { id: true, name: true } },
+        viewers: { select: { user: { select: { id: true, name: true } } } },
         _count: { select: { comments: true } }
       },
       orderBy: { createdAt: 'desc' }
@@ -192,6 +196,7 @@ router.get('/:id', auth, async (req, res) => {
         updatedAt: true,
         group: { select: { id: true, name: true } },
         creator: { select: { id: true, name: true } },
+        viewers: { select: { user: { select: { id: true, name: true } } } },
         comments: {
           select: {
             id: true,
@@ -220,10 +225,10 @@ router.get('/:id', auth, async (req, res) => {
 router.patch('/:id', auth, isPastora, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, deadline, priority, visibility } = req.body;
+    const { status, deadline, priority, visibility, viewerIds } = req.body;
 
     const validPriorities = ['ALTA', 'MEDIA', 'BAJA'];
-    const validVisibilities = ['PRIVATE', 'PUBLIC'];
+    const validVisibilities = ['PRIVATE', 'PUBLIC', 'USER_SPECIFIC'];
 
     const ticket = await prisma.ticket.update({
       where: { id },
@@ -244,7 +249,17 @@ router.patch('/:id', auth, isPastora, async (req, res) => {
       }
     });
 
-    // Notify group members
+    if (visibility === 'USER_SPECIFIC' && Array.isArray(viewerIds) && viewerIds.length > 0) {
+      await prisma.ticketViewer.deleteMany({ where: { ticketId: id } });
+      for (const userId of viewerIds) {
+        await prisma.ticketViewer.create({
+          data: { ticketId: id, userId }
+        }).catch(() => {});
+      }
+    } else if (visibility && visibility !== 'USER_SPECIFIC') {
+      await prisma.ticketViewer.deleteMany({ where: { ticketId: id } });
+    }
+
     const group = await prisma.group.findUnique({
       where: { id: ticket.group.id },
       include: {
@@ -259,10 +274,17 @@ router.patch('/:id', auth, isPastora, async (req, res) => {
       COMPLETADO: 'completado'
     };
 
-    for (const member of group.members) {
+    let notifyUserIds;
+    if (visibility === 'USER_SPECIFIC' && Array.isArray(viewerIds) && viewerIds.length > 0) {
+      notifyUserIds = viewerIds;
+    } else {
+      notifyUserIds = group.members.map(m => m.userId);
+    }
+
+    for (const userId of notifyUserIds) {
       await prisma.notification.create({
         data: {
-          userId: member.userId,
+          userId,
           ticketId: ticket.id,
           message: `El ticket "${ticket.title}" ha sido ${statusMessages[status]}`
         }

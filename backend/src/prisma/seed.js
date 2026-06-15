@@ -73,7 +73,12 @@ async function main() {
     { userId: members[2].id, groupId: groups[3].id }
   ];
   for (const a of assignments) {
-    await safeCreate(prisma.userGroup, { userId_groupId: a }, a);
+    try {
+      const existing = await prisma.userGroup.findFirst({ where: { userId: a.userId, groupId: a.groupId } });
+      if (!existing) await prisma.userGroup.create({ data: a });
+    } catch (e) {
+      if (e.code !== 'P2002') console.error('UserGroup error:', e.message);
+    }
   }
   console.log('✅ Group assignments done');
 

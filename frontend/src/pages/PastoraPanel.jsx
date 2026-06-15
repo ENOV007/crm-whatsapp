@@ -181,9 +181,14 @@ function PastoraPanel({ user }) {
                       )}
                       {ticket.visibility && (
                         <span className={`text-xs px-1.5 py-0.5 rounded mt-1 inline-block ml-2 ${
-                          ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                          ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-700' :
+                          ticket.visibility === 'USER_SPECIFIC' ? 'bg-orange-100 text-orange-700' :
+                          'bg-purple-100 text-purple-700'
                         }`}>
-                          {ticket.visibility === 'PUBLIC' ? '🌐' : '🔒'}
+                          {ticket.visibility === 'PUBLIC' ? '🌐' :
+                           ticket.visibility === 'USER_SPECIFIC'
+                             ? `👤 ${ticket.viewers?.map(v => v.user.name).join(', ') || ''}`
+                             : '🔒'}
                         </span>
                       )}
                     </div>

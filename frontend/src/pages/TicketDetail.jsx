@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ticketsAPI } from '../services/api';
+import { ticketsAPI, groupsAPI } from '../services/api';
 
 function TicketDetail({ user }) {
   const { id } = useParams();
@@ -10,8 +10,10 @@ function TicketDetail({ user }) {
   const [isActionPlan, setIsActionPlan] = useState(false);
   const [approveDeadline, setApproveDeadline] = useState('');
   const [approvePriority, setApprovePriority] = useState('BAJA');
-  const [approveVisibility, setApproveVisibility] = useState('PUBLIC');
+  const [approveVisibility, setApproveVisibility] = useState('PRIVATE');
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [selectedViewerIds, setSelectedViewerIds] = useState([]);
   const [editDeadline, setEditDeadline] = useState('');
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
   const [editPriority, setEditPriority] = useState('');
@@ -46,12 +48,13 @@ function TicketDetail({ user }) {
     }
   };
 
-  const handleStatusChange = async (newStatus, deadline = null, priority = null, visibility = null) => {
+  const handleStatusChange = async (newStatus, deadline = null, priority = null, visibility = null, viewerIds = null) => {
     try {
       const data = { status: newStatus };
       if (deadline) data.deadline = deadline;
       if (priority) data.priority = priority;
       if (visibility) data.visibility = visibility;
+      if (viewerIds) data.viewerIds = viewerIds;
       await ticketsAPI.update(id, data);
       fetchTicket();
     } catch (error) {
@@ -64,11 +67,26 @@ function TicketDetail({ user }) {
       alert('Debes seleccionar una fecha límite para aprobar.');
       return;
     }
-    handleStatusChange('APROBADO', approveDeadline, approvePriority, approveVisibility);
+    if (approveVisibility === 'USER_SPECIFIC' && selectedViewerIds.length === 0) {
+      alert('Debes seleccionar al menos un usuario.');
+      return;
+    }
+    handleStatusChange('APROBADO', approveDeadline, approvePriority, approveVisibility, approveVisibility === 'USER_SPECIFIC' ? selectedViewerIds : null);
     setShowApproveModal(false);
     setApproveDeadline('');
     setApprovePriority('BAJA');
-    setApproveVisibility('PUBLIC');
+    setApproveVisibility('PRIVATE');
+    setSelectedViewerIds([]);
+  };
+
+  const fetchGroupMembers = async (groupId) => {
+    try {
+      const res = await groupsAPI.getById(groupId);
+      const members = res.data.members?.map(m => m.user) || [];
+      setGroupMembers(members);
+    } catch (error) {
+      console.error('Error fetching group members:', error);
+    }
   };
 
   const handleSaveDeadline = async () => {
@@ -412,9 +430,14 @@ function TicketDetail({ user }) {
               <div className="flex justify-between items-center">
                 <dt className="text-gray-500 font-bold">Visibilidad:</dt>
                 <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                  ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-800' :
+                  ticket.visibility === 'USER_SPECIFIC' ? 'bg-orange-100 text-orange-800' :
+                  'bg-purple-100 text-purple-800'
                 }`}>
-                  {ticket.visibility === 'PUBLIC' ? '🌐 Público' : '🔒 Privado'}
+                  {ticket.visibility === 'PUBLIC' ? '🌐 Público' :
+                   ticket.visibility === 'USER_SPECIFIC'
+                     ? `👤 Solo ${ticket.viewers?.map(v => v.user.name).join(', ') || 'usuario'}`
+                     : '🔒 Privado'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -473,12 +496,18 @@ function TicketDetail({ user }) {
               <div className="flex gap-2">
                 {[
                   { value: 'PRIVATE', label: 'Privado', desc: 'Solo el grupo', icon: '🔒', color: 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200' },
-                  { value: 'PUBLIC', label: 'Público', desc: 'Todos los miembros', icon: '🌐', color: 'bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200' }
+                  { value: 'PUBLIC', label: 'Público', desc: 'Todos los miembros', icon: '🌐', color: 'bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200' },
+                  { value: 'USER_SPECIFIC', label: 'Privado para usuario', desc: '', icon: '👤', color: 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200' }
                 ].map(v => (
                   <button
                     key={v.value}
                     type="button"
-                    onClick={() => setApproveVisibility(v.value)}
+                    onClick={() => {
+                      setApproveVisibility(v.value);
+                      if (v.value === 'USER_SPECIFIC' && groupMembers.length === 0) {
+                        fetchGroupMembers(ticket.group.id);
+                      }
+                    }}
                     className={`flex-1 py-3 px-3 rounded-lg border-2 text-sm font-medium transition-all ${
                       approveVisibility === v.value
                         ? `${v.color} ring-2 ring-offset-1 ring-blue-400`
@@ -487,14 +516,59 @@ function TicketDetail({ user }) {
                   >
                     <span className="text-lg">{v.icon}</span>
                     <div className="font-medium">{v.label}</div>
-                    <div className="text-xs opacity-75">{v.desc}</div>
+                    <div className="text-xs opacity-75">
+                      {v.value === 'USER_SPECIFIC'
+                        ? (selectedViewerIds.length > 0
+                          ? `Solo ve${selectedViewerIds.length > 1 ? 'n' : ''} ${groupMembers.filter(m => selectedViewerIds.includes(m.id)).map(m => m.name).join(', ')}`
+                          : 'Selecciona usuario')
+                        : v.desc
+                      }
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
+            {approveVisibility === 'USER_SPECIFIC' && (
+              <div className="mb-6">
+                <label className="block text-gray-700 mb-2">Seleccionar usuarios del grupo</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2">
+                  {groupMembers.length === 0 ? (
+                    <p className="text-gray-500 text-sm">Cargando miembros...</p>
+                  ) : (
+                    groupMembers.map(member => (
+                      <label key={member.id} className="flex items-center gap-3 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedViewerIds.includes(member.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedViewerIds([...selectedViewerIds, member.id]);
+                            } else {
+                              setSelectedViewerIds(selectedViewerIds.filter(id => id !== member.id));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <div>
+                          <p className="text-sm font-medium">{member.name}</p>
+                          <p className="text-xs text-gray-500">{member.email}</p>
+                        </div>
+                        <span className={`ml-auto text-xs px-2 py-0.5 rounded ${
+                          member.role === 'PASTORA' ? 'bg-pink-100 text-pink-700' :
+                          member.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {member.role === 'PASTORA' ? 'Pastora' : member.role === 'ADMIN' ? 'Admin' : 'Miembro'}
+                        </span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
             <div className="flex justify-end space-x-3">
               <button
-                onClick={() => { setShowApproveModal(false); setApproveDeadline(''); setApprovePriority('BAJA'); setApproveVisibility('PUBLIC'); }}
+                onClick={() => { setShowApproveModal(false); setApproveDeadline(''); setApprovePriority('BAJA'); setApproveVisibility('PRIVATE'); setSelectedViewerIds([]); }}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
                 Cancelar
