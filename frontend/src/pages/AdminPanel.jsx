@@ -643,13 +643,13 @@ function AdminPanel({ user }) {
                             <span className={`text-xs px-1.5 py-0.5 rounded ${
                               ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-700' :
                               ticket.visibility === 'USER_SPECIFIC' ? 'bg-orange-100 text-orange-700' :
-                              ticket.visibility === 'DRAFT' ? 'bg-gray-100 text-gray-700' :
+                              ticket.visibility === 'INICIAL' ? 'bg-gray-100 text-gray-700' :
                               'bg-purple-100 text-purple-700'
                             }`}>
                               {ticket.visibility === 'PUBLIC' ? '🌐 Iglesia' :
                                ticket.visibility === 'USER_SPECIFIC'
                                  ? `👤 ${ticket.viewers?.map(v => v.user.name).join(', ') || ''}`
-                                 : ticket.visibility === 'DRAFT' ? '📝 Borrador'
+                                 : ticket.visibility === 'INICIAL' ? '📝 Inicial'
                                  : '🔒 Grupo'}
                             </span>
                           )}

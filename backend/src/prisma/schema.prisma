@@ -63,7 +63,7 @@ model Ticket {
   description String
   status      TicketStatus @default(PENDIENTE_PASTORA)
   priority    TicketPriority?
-  visibility  TicketVisibility @default(DRAFT)
+  visibility  TicketVisibility @default(INICIAL)
   deadline    DateTime?
   hidden      Boolean    @default(false)
   groupId     String
@@ -83,7 +83,7 @@ model Ticket {
 }
 
 enum TicketVisibility {
-  DRAFT
+  INICIAL
   PRIVATE
   PUBLIC
   USER_SPECIFIC

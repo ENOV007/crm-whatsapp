@@ -237,7 +237,7 @@ router.patch('/:id', auth, async (req, res) => {
     const { status, deadline, priority, visibility, viewerIds, groupId } = req.body;
 
     const validPriorities = ['ALTA', 'MEDIA', 'BAJA'];
-    const validVisibilities = ['DRAFT', 'PRIVATE', 'PUBLIC', 'USER_SPECIFIC'];
+    const validVisibilities = ['INICIAL', 'PRIVATE', 'PUBLIC', 'USER_SPECIFIC'];
     const validStatuses = ['PENDIENTE_PASTORA', 'APROBADO', 'RECHAZADO', 'EN_PROGRESO', 'COMPLETADO'];
 
     const currentTicket = await prisma.ticket.findUnique({
@@ -257,7 +257,7 @@ router.patch('/:id', auth, async (req, res) => {
     if (groupId) updateData.groupId = groupId;
 
     if (status === 'RECHAZADO') {
-      updateData.visibility = 'DRAFT';
+      updateData.visibility = 'INICIAL';
       await prisma.ticketViewer.deleteMany({ where: { ticketId: id } });
     }
 
