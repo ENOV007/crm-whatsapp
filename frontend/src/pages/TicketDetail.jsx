@@ -14,10 +14,17 @@ function TicketDetail({ user }) {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [groupMembers, setGroupMembers] = useState([]);
   const [selectedViewerIds, setSelectedViewerIds] = useState([]);
+  const [allGroups, setAllGroups] = useState([]);
   const [editDeadline, setEditDeadline] = useState('');
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
   const [editPriority, setEditPriority] = useState('');
   const [isEditingPriority, setIsEditingPriority] = useState(false);
+  const [editVisibility, setEditVisibility] = useState('');
+  const [isEditingVisibility, setIsEditingVisibility] = useState(false);
+  const [editGroupId, setEditGroupId] = useState('');
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const [editViewerIds, setEditViewerIds] = useState([]);
+  const [isEditingViewers, setIsEditingViewers] = useState(false);
 
   useEffect(() => {
     fetchTicket();
@@ -115,6 +122,43 @@ function TicketDetail({ user }) {
       fetchTicket();
     } catch (error) {
       console.error('Error updating priority:', error);
+    }
+  };
+
+  const handleSaveVisibility = async () => {
+    try {
+      const data = { visibility: editVisibility };
+      if (editVisibility === 'USER_SPECIFIC' && editViewerIds.length > 0) {
+        data.viewerIds = editViewerIds;
+      }
+      await ticketsAPI.update(id, data);
+      setIsEditingVisibility(false);
+      fetchTicket();
+    } catch (error) {
+      console.error('Error updating visibility:', error);
+    }
+  };
+
+  const handleSaveGroup = async () => {
+    if (!editGroupId || editGroupId === ticket.group.id) {
+      setIsEditingGroup(false);
+      return;
+    }
+    try {
+      await ticketsAPI.update(id, { groupId: editGroupId, visibility: 'PRIVATE', viewerIds: [] });
+      setIsEditingGroup(false);
+      fetchTicket();
+    } catch (error) {
+      console.error('Error updating group:', error);
+    }
+  };
+
+  const fetchAllGroups = async () => {
+    try {
+      const res = await groupsAPI.getAll();
+      setAllGroups(res.data);
+    } catch (error) {
+      console.error('Error fetching groups:', error);
     }
   };
 
@@ -259,10 +303,10 @@ function TicketDetail({ user }) {
 
         {/* Sidebar */}
         <div>
-          {/* Status Actions (Pastora only) */}
-          {user.role === 'PASTORA' && (
+          {/* Status Actions (Pastora + Admin) */}
+          {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
             <div className="card mb-6">
-              <h2 className="text-xl font-semibold mb-4">Gestionar Estado</h2>
+              <h2 className="text-xl font-semibold mb-4">Gestionar Ticket</h2>
               <div className="space-y-2">
                 {ticket.status === 'PENDIENTE_PASTORA' && (
                   <>
@@ -308,7 +352,7 @@ function TicketDetail({ user }) {
           {/* Ticket Info */}
           <div className="card">
             <h2 className="text-xl font-semibold mb-4">Información</h2>
-            <dl className="space-y-2 text-sm">
+            <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-gray-500">Estado:</dt>
                 <dd className={getStatusClass(ticket.status)}>
@@ -323,6 +367,8 @@ function TicketDetail({ user }) {
                 <dt className="text-gray-500">Fecha creación:</dt>
                 <dd>{new Date(ticket.createdAt).toLocaleDateString()}</dd>
               </div>
+
+              {/* Fecha límite - editable por admin y pastora */}
               <div className="flex justify-between items-center">
                 <dt className="text-gray-500 font-bold">Fecha límite:</dt>
                 {isEditingDeadline ? (
@@ -334,112 +380,169 @@ function TicketDetail({ user }) {
                       min={getMinDate()}
                       className="border rounded px-2 py-1 text-sm"
                     />
-                    <button
-                      onClick={handleSaveDeadline}
-                      className="text-green-600 hover:text-green-800 text-sm font-medium"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      onClick={() => setIsEditingDeadline(false)}
-                      className="text-gray-400 hover:text-gray-600 text-sm"
-                    >
-                      Cancelar
-                    </button>
+                    <button onClick={handleSaveDeadline} className="text-green-600 hover:text-green-800 text-sm font-medium">Guardar</button>
+                    <button onClick={() => setIsEditingDeadline(false)} className="text-gray-400 hover:text-gray-600 text-sm">Cancelar</button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     {ticket.deadline ? (
-                      <dd className={
-                        new Date(ticket.deadline) < new Date() && ticket.status !== 'COMPLETADO'
-                          ? 'text-red-600 font-bold'
-                          : 'font-bold'
-                      }>
+                      <dd className={new Date(ticket.deadline) < new Date() && ticket.status !== 'COMPLETADO' ? 'text-red-600 font-bold' : 'font-bold'}>
                         {new Date(ticket.deadline).toLocaleDateString()}
                       </dd>
                     ) : (
                       <dd className="text-gray-400 italic">Sin fecha</dd>
                     )}
-                    {user.role === 'PASTORA' && (
+                    {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
                       <button
-                        onClick={() => {
-                          setEditDeadline(ticket.deadline ? ticket.deadline.split('T')[0] : getMinDate());
-                          setIsEditingDeadline(true);
-                        }}
+                        onClick={() => { setEditDeadline(ticket.deadline ? ticket.deadline.split('T')[0] : getMinDate()); setIsEditingDeadline(true); }}
                         className="text-blue-600 hover:text-blue-800 text-xs"
-                      >
-                        Editar
-                      </button>
+                      >Editar</button>
                     )}
                   </div>
                 )}
               </div>
+
+              {/* Prioridad - editable */}
               <div className="flex justify-between items-center">
                 <dt className="text-gray-500 font-bold">Prioridad:</dt>
                 {isEditingPriority ? (
                   <div className="flex items-center gap-2">
-                    <select
-                      value={editPriority}
-                      onChange={(e) => setEditPriority(e.target.value)}
-                      className="border rounded px-2 py-1 text-sm"
-                    >
+                    <select value={editPriority} onChange={(e) => setEditPriority(e.target.value)} className="border rounded px-2 py-1 text-sm">
                       <option value="ALTA">Alta</option>
                       <option value="MEDIA">Media</option>
                       <option value="BAJA">Baja</option>
                     </select>
-                    <button
-                      onClick={handleSavePriority}
-                      className="text-green-600 hover:text-green-800 text-sm font-medium"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      onClick={() => setIsEditingPriority(false)}
-                      className="text-gray-400 hover:text-gray-600 text-sm"
-                    >
-                      Cancelar
-                    </button>
+                    <button onClick={handleSavePriority} className="text-green-600 hover:text-green-800 text-sm font-medium">Guardar</button>
+                    <button onClick={() => setIsEditingPriority(false)} className="text-gray-400 hover:text-gray-600 text-sm">Cancelar</button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     {ticket.priority ? (
-                      <dd className={`font-bold ${
-                        ticket.priority === 'ALTA' ? 'text-red-600' :
-                        ticket.priority === 'MEDIA' ? 'text-yellow-600' :
-                        'text-green-600'
-                      }`}>
-                        Prioridad: • {ticket.priority}
+                      <dd className={`font-bold ${ticket.priority === 'ALTA' ? 'text-red-600' : ticket.priority === 'MEDIA' ? 'text-yellow-600' : 'text-green-600'}`}>
+                        • {ticket.priority}
                       </dd>
                     ) : (
                       <dd className="text-gray-400 italic">Sin asignar</dd>
                     )}
-                    {user.role === 'PASTORA' && (
+                    {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
                       <button
-                        onClick={() => {
-                          setEditPriority(ticket.priority || 'BAJA');
-                          setIsEditingPriority(true);
-                        }}
+                        onClick={() => { setEditPriority(ticket.priority || 'BAJA'); setIsEditingPriority(true); }}
                         className="text-blue-600 hover:text-blue-800 text-xs"
-                      >
-                        Editar
-                      </button>
+                      >Editar</button>
                     )}
                   </div>
                 )}
               </div>
+
+              {/* Visibilidad - editable */}
               <div className="flex justify-between items-center">
                 <dt className="text-gray-500 font-bold">Visibilidad:</dt>
-                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-800' :
-                  ticket.visibility === 'USER_SPECIFIC' ? 'bg-orange-100 text-orange-800' :
-                  'bg-purple-100 text-purple-800'
-                }`}>
-                  {ticket.visibility === 'PUBLIC' ? '🌐 Público' :
-                   ticket.visibility === 'USER_SPECIFIC'
-                     ? `👤 Solo ${ticket.viewers?.map(v => v.user.name).join(', ') || 'usuario'}`
-                     : '🔒 Privado'}
-                </span>
+                {isEditingVisibility ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-1">
+                      {[
+                        { value: 'PRIVATE', label: '🔒 Grupo' },
+                        { value: 'PUBLIC', label: '🌐 Público' },
+                        { value: 'USER_SPECIFIC', label: '👤 Usuario' }
+                      ].map(v => (
+                        <button
+                          key={v.value}
+                          type="button"
+                          onClick={() => {
+                            setEditVisibility(v.value);
+                            if (v.value === 'USER_SPECIFIC') {
+                              fetchGroupMembers(editGroupId || ticket.group.id);
+                            }
+                          }}
+                          className={`px-2 py-1 rounded text-xs border ${
+                            editVisibility === v.value ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 text-gray-600'
+                          }`}
+                        >{v.label}</button>
+                      ))}
+                    </div>
+                    {editVisibility === 'USER_SPECIFIC' && (
+                      <div className="space-y-1 max-h-32 overflow-y-auto border rounded p-1">
+                        {groupMembers.map(m => (
+                          <label key={m.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editViewerIds.includes(m.id)}
+                              onChange={(e) => {
+                                setEditViewerIds(e.target.checked ? [...editViewerIds, m.id] : editViewerIds.filter(i => i !== m.id));
+                              }}
+                            />
+                            {m.name}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveVisibility} className="text-green-600 hover:text-green-800 text-sm font-medium">Guardar</button>
+                      <button onClick={() => setIsEditingVisibility(false)} className="text-gray-400 hover:text-gray-600 text-sm">Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${
+                      ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-800' :
+                      ticket.visibility === 'USER_SPECIFIC' ? 'bg-orange-100 text-orange-800' :
+                      'bg-purple-100 text-purple-800'
+                    }`}>
+                      {ticket.visibility === 'PUBLIC' ? '🌐 Público' :
+                       ticket.visibility === 'USER_SPECIFIC'
+                         ? `👤 Solo ${ticket.viewers?.map(v => v.user.name).join(', ') || 'usuario'}`
+                         : '🔒 Privado'}
+                    </span>
+                    {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
+                      <button
+                        onClick={() => {
+                          setEditVisibility(ticket.visibility || 'PRIVATE');
+                          setEditViewerIds(ticket.viewers?.map(v => v.user.id) || []);
+                          setIsEditingVisibility(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                      >Editar</button>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Grupo - editable (mover a otro grupo) */}
+              <div className="flex justify-between items-center">
+                <dt className="text-gray-500 font-bold">Grupo:</dt>
+                {isEditingGroup ? (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={editGroupId}
+                      onChange={(e) => setEditGroupId(e.target.value)}
+                      className="border rounded px-2 py-1 text-sm"
+                    >
+                      {allGroups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveGroup} className="text-green-600 hover:text-green-800 text-sm font-medium">Guardar</button>
+                      <button onClick={() => setIsEditingGroup(false)} className="text-gray-400 hover:text-gray-600 text-sm">Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <dd className="font-medium">{ticket.group.name}</dd>
+                    {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
+                      <button
+                        onClick={() => {
+                          setEditGroupId(ticket.group.id);
+                          fetchAllGroups();
+                          setIsEditingGroup(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                      >Mover</button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-between">
                 <dt className="text-gray-500">Última actualización:</dt>
                 <dd>{new Date(ticket.updatedAt).toLocaleDateString()}</dd>

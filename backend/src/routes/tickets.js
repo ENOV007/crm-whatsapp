@@ -221,23 +221,29 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Update ticket status (only pastora)
-router.patch('/:id', auth, isPastora, async (req, res) => {
+// Update ticket (pastora or admin)
+router.patch('/:id', auth, async (req, res) => {
   try {
+    if (req.user.role !== 'PASTORA' && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Solo pastora o admin pueden editar tickets.' });
+    }
+
     const { id } = req.params;
-    const { status, deadline, priority, visibility, viewerIds } = req.body;
+    const { status, deadline, priority, visibility, viewerIds, groupId } = req.body;
 
     const validPriorities = ['ALTA', 'MEDIA', 'BAJA'];
     const validVisibilities = ['PRIVATE', 'PUBLIC', 'USER_SPECIFIC'];
 
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (deadline) updateData.deadline = new Date(deadline);
+    if (priority && validPriorities.includes(priority)) updateData.priority = priority;
+    if (visibility && validVisibilities.includes(visibility)) updateData.visibility = visibility;
+    if (groupId) updateData.groupId = groupId;
+
     const ticket = await prisma.ticket.update({
       where: { id },
-      data: {
-        ...(status && { status }),
-        ...(deadline && { deadline: new Date(deadline) }),
-        ...(priority && validPriorities.includes(priority) && { priority }),
-        ...(visibility && validVisibilities.includes(visibility) && { visibility })
-      },
+      data: updateData,
       select: {
         id: true,
         title: true,
