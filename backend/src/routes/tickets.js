@@ -82,9 +82,10 @@ router.get('/', auth, async (req, res) => {
 
     if (req.user.role !== 'ADMIN' && req.user.role !== 'PASTORA') {
       where.OR = [
-        { visibility: 'PUBLIC', group: { members: { some: { userId: req.user.id } } } },
+        { createdById: req.user.id },
         { viewers: { some: { userId: req.user.id } } },
-        { createdById: req.user.id }
+        { status: { notIn: ['PENDIENTE_PASTORA'] }, visibility: 'PUBLIC' },
+        { status: { notIn: ['PENDIENTE_PASTORA'] }, visibility: 'PRIVATE', group: { members: { some: { userId: req.user.id } } } }
       ];
     }
 
@@ -258,13 +259,7 @@ router.patch('/:id', auth, async (req, res) => {
     if (status === 'RECHAZADO') {
       updateData.visibility = 'PRIVATE';
       await prisma.ticketViewer.deleteMany({ where: { ticketId: id } });
-      await prisma.ticketViewer.create({
-        data: { ticketId: id, userId: currentTicket.createdById }
-      });
     }
-    if (priority && validPriorities.includes(priority)) updateData.priority = priority;
-    if (visibility && validVisibilities.includes(visibility)) updateData.visibility = visibility;
-    if (groupId) updateData.groupId = groupId;
 
     const ticket = await prisma.ticket.update({
       where: { id },
@@ -306,19 +301,23 @@ router.patch('/:id', auth, async (req, res) => {
     };
 
     let notifyUserIds;
-    if (visibility === 'USER_SPECIFIC' && Array.isArray(viewerIds) && viewerIds.length > 0) {
+    if (status === 'RECHAZADO') {
+      notifyUserIds = [currentTicket.createdById];
+    } else if (visibility === 'USER_SPECIFIC' && Array.isArray(viewerIds) && viewerIds.length > 0) {
       notifyUserIds = viewerIds;
     } else {
       notifyUserIds = group.members.map(m => m.userId);
     }
 
-    const pastoras = await prisma.user.findMany({
-      where: { role: 'PASTORA' },
-      select: { id: true }
-    });
-    for (const p of pastoras) {
-      if (!notifyUserIds.includes(p.id)) {
-        notifyUserIds.push(p.id);
+    if (status !== 'RECHAZADO') {
+      const pastoras = await prisma.user.findMany({
+        where: { role: 'PASTORA' },
+        select: { id: true }
+      });
+      for (const p of pastoras) {
+        if (!notifyUserIds.includes(p.id)) {
+          notifyUserIds.push(p.id);
+        }
       }
     }
 
