@@ -8,6 +8,9 @@ build/
 backup-*
 *.zip
 *.rar
+*.dump
+*.dump.gz
+*.sha256
 *.bat
 .DS_Store
 Thumbs.db
