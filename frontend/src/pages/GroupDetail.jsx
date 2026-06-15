@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { groupsAPI, ticketsAPI } from '../services/api';
+import { groupsAPI, ticketsAPI, adminAPI } from '../services/api';
 
 function GroupDetail({ user }) {
   const { id } = useParams();
@@ -8,7 +8,8 @@ function GroupDetail({ user }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
-  const [memberEmail, setMemberEmail] = useState('');
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
 
   useEffect(() => {
     fetchGroupData();
@@ -26,6 +27,37 @@ function GroupDetail({ user }) {
       console.error('Error fetching group:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const res = await adminAPI.getUsers();
+      setAllUsers(res.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedUserId) return;
+    try {
+      await groupsAPI.addMember(id, selectedUserId);
+      setSelectedUserId('');
+      setShowAddMember(false);
+      fetchGroupData();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Error al agregar miembro');
+    }
+  };
+
+  const handleRemoveMember = async (userId) => {
+    if (!confirm('¿Remover este miembro del grupo?')) return;
+    try {
+      await groupsAPI.removeMember(id, userId);
+      fetchGroupData();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Error al remover miembro');
     }
   };
 
@@ -145,7 +177,7 @@ function GroupDetail({ user }) {
               <h2 className="text-xl font-semibold">Miembros</h2>
               {user.role === 'PASTORA' && (
                 <button
-                  onClick={() => setShowAddMember(!showAddMember)}
+                  onClick={() => { setShowAddMember(!showAddMember); if (!showAddMember) fetchAllUsers(); }}
                   className="text-blue-600 hover:underline text-sm"
                 >
                   + Agregar
@@ -155,22 +187,36 @@ function GroupDetail({ user }) {
 
             {showAddMember && (
               <div className="mb-4 p-3 bg-gray-50 rounded">
-                <input
-                  type="email"
-                  placeholder="Email del miembro"
-                  value={memberEmail}
-                  onChange={(e) => setMemberEmail(e.target.value)}
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
                   className="input-field text-sm mb-2"
-                />
-                <button
-                  onClick={async () => {
-                    // TODO: Implement add member
-                    alert('Función por implementar');
-                  }}
-                  className="btn-primary text-sm w-full"
                 >
-                  Agregar
-                </button>
+                  <option value="">Seleccionar usuario...</option>
+                  {allUsers
+                    .filter(u => !group.members.some(m => m.user.id === u.id))
+                    .map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email}) - {u.role}
+                      </option>
+                    ))
+                  }
+                </select>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddMember}
+                    disabled={!selectedUserId}
+                    className="btn-primary text-sm flex-1 disabled:opacity-50"
+                  >
+                    Agregar
+                  </button>
+                  <button
+                    onClick={() => { setShowAddMember(false); setSelectedUserId(''); }}
+                    className="text-gray-500 hover:text-gray-700 text-sm"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
             )}
 
@@ -181,9 +227,20 @@ function GroupDetail({ user }) {
                     <p className="font-medium">{member.user.name}</p>
                     <p className="text-sm text-gray-500">{member.user.email}</p>
                   </div>
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                    {member.user.role === 'PASTORA' ? 'Pastora' : 'Miembro'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                      {member.user.role === 'PASTORA' ? 'Pastora' : 'Miembro'}
+                    </span>
+                    {user.role === 'PASTORA' && member.user.role !== 'PASTORA' && (
+                      <button
+                        onClick={() => handleRemoveMember(member.user.id)}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                        title="Remover del grupo"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
