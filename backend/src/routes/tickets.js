@@ -48,18 +48,20 @@ router.post('/', auth, async (req, res) => {
       }
     });
 
-    // Notify pastora of the group (if not the Pastora's private group)
-    if (!group.isPrivate) {
-      const pastora = group.members.find(m => m.user.role === 'PASTORA');
-      if (pastora) {
-        await prisma.notification.create({
-          data: {
-            userId: pastora.user.id,
-            ticketId: ticket.id,
-            message: `Nueva sugerencia en ${group.name}: "${title}"`
-          }
-        });
-      }
+    // Notify all pastora users
+    const pastoras = await prisma.user.findMany({
+      where: { role: 'PASTORA' },
+      select: { id: true }
+    });
+
+    for (const pastora of pastoras) {
+      await prisma.notification.create({
+        data: {
+          userId: pastora.id,
+          ticketId: ticket.id,
+          message: `Nueva sugerencia en ${group.name}: "${title}"`
+        }
+      });
     }
 
     res.status(201).json(ticket);
@@ -285,6 +287,16 @@ router.patch('/:id', auth, async (req, res) => {
       notifyUserIds = viewerIds;
     } else {
       notifyUserIds = group.members.map(m => m.userId);
+    }
+
+    const pastoras = await prisma.user.findMany({
+      where: { role: 'PASTORA' },
+      select: { id: true }
+    });
+    for (const p of pastoras) {
+      if (!notifyUserIds.includes(p.id)) {
+        notifyUserIds.push(p.id);
+      }
     }
 
     for (const userId of notifyUserIds) {
