@@ -49,6 +49,7 @@ model UserGroup {
   id        String   @id @default(uuid())
   userId    String
   groupId   String
+  isLeader  Boolean  @default(false)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -118,11 +119,20 @@ model Comment {
   userId        String
   content       String
   isActionPlan  Boolean  @default(false)
+  reviewStatus  ReviewStatus?
+  reviewedById  String?
   ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt     DateTime @default(now())
 
   @@index([ticketId])
+}
+
+enum ReviewStatus {
+  PENDING_REVIEW
+  APPROVED_BY_LEADER
+  REJECTED_BY_LEADER
+  SENT_TO_PASTORA
 }
 
 model Notification {

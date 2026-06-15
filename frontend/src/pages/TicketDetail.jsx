@@ -257,16 +257,83 @@ function TicketDetail({ user }) {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-medium">{c.user.name}</span>
-                      {c.isActionPlan && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          Plan de Acción
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {c.isActionPlan && (
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                            Plan de Acción
+                          </span>
+                        )}
+                        {c.reviewStatus && (
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            c.reviewStatus === 'PENDING_REVIEW' ? 'bg-yellow-100 text-yellow-800' :
+                            c.reviewStatus === 'APPROVED_BY_LEADER' ? 'bg-green-100 text-green-800' :
+                            c.reviewStatus === 'REJECTED_BY_LEADER' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {c.reviewStatus === 'PENDING_REVIEW' ? '⏳ Pendiente revisión' :
+                             c.reviewStatus === 'APPROVED_BY_LEADER' ? '✓ Aprobado por líder' :
+                             c.reviewStatus === 'REJECTED_BY_LEADER' ? '✗ Rechazado por líder' :
+                             '→ Enviado a pastora'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-gray-700">{c.content}</p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {new Date(c.createdAt).toLocaleString()}
-                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-gray-500">
+                        {new Date(c.createdAt).toLocaleString()}
+                      </p>
+                      <div className="flex gap-2">
+                        {c.user.id === user.id && !c.reviewStatus && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await ticketsAPI.requestReview(ticket.id, c.id);
+                                fetchTicket();
+                              } catch (e) {
+                                alert(e.response?.data?.error || 'Error al pedir revisión');
+                              }
+                            }}
+                            className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded hover:bg-yellow-200"
+                          >
+                            Pedir Revisión
+                          </button>
+                        )}
+                        {c.reviewStatus === 'PENDING_REVIEW' && (user.role === 'PASTORA' || user.role === 'ADMIN') && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await ticketsAPI.reviewComment(ticket.id, c.id, 'send-to-pastora');
+                                  fetchTicket();
+                                } catch (e) {
+                                  alert(e.response?.data?.error || 'Error');
+                                }
+                              }}
+                              className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200"
+                            >
+                              Enviar a Pastora
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await ticketsAPI.reviewComment(ticket.id, c.id, 'reject');
+                                  fetchTicket();
+                                } catch (e) {
+                                  alert(e.response?.data?.error || 'Error');
+                                }
+                              }}
+                              className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded hover:bg-red-200"
+                            >
+                              Rechazar
+                            </button>
+                          </>
+                        )}
+                        {c.reviewStatus === 'PENDING_REVIEW' && user.role !== 'PASTORA' && user.role !== 'ADMIN' && (
+                          <span className="text-xs text-gray-400">Esperando revisión del líder</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

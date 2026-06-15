@@ -60,7 +60,9 @@ export const ticketsAPI = {
   update: (id, data) => api.patch(`/tickets/${id}`, data),
   hide: (id, hidden = true) => api.patch(`/tickets/${id}/hide`, { hidden }),
   delete: (id) => api.delete(`/tickets/${id}`),
-  addComment: (ticketId, data) => api.post(`/tickets/${ticketId}/comments`, data)
+  addComment: (ticketId, data) => api.post(`/tickets/${ticketId}/comments`, data),
+  requestReview: (ticketId, commentId) => api.post(`/tickets/${ticketId}/comments/${commentId}/request-review`),
+  reviewComment: (ticketId, commentId, action) => api.patch(`/tickets/${ticketId}/comments/${commentId}/review`, { action })
 };
 
 // Notifications API
@@ -80,6 +82,7 @@ export const adminAPI = {
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
   resetPassword: (id) => api.post(`/admin/users/${id}/reset-password`),
   updateUserGroup: (id, groupId) => api.patch(`/admin/users/${id}/group`, { groupId }),
+  setGroupLeader: (userId, groupId, isLeader) => api.patch(`/admin/users/${userId}/groups/${groupId}/leader`, { isLeader }),
   getGroups: () => api.get('/admin/groups'),
   createGroup: (data) => api.post('/admin/groups', data),
   deleteGroup: (id) => api.delete(`/admin/groups/${id}`),

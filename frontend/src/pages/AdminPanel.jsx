@@ -190,6 +190,16 @@ function AdminPanel({ user }) {
     }
   };
 
+  const handleSetLeader = async (userId, groupId, isLeader) => {
+    try {
+      await adminAPI.setGroupLeader(userId, groupId, isLeader);
+      fetchData();
+    } catch (error) {
+      console.error('Error setting leader:', error);
+      alert(error.response?.data?.error || 'Error al asignar líder');
+    }
+  };
+
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     try {
@@ -501,17 +511,29 @@ function AdminPanel({ user }) {
                       ) : (
                         <span className="text-xs text-gray-400">Sin grupo</span>
                       )}
-                      {u.id !== user.id && (
-                        <select
-                          onChange={(e) => { handleChangeGroup(u.id, e.target.value); e.target.value = ''; }}
-                          className="border rounded text-xs px-2 py-1"
-                          defaultValue=""
-                        >
-                          <option value="" disabled>Cambiar a...</option>
-                          {groups.map(g => (
-                            <option key={g.id} value={g.id}>{g.name}</option>
-                          ))}
-                        </select>
+                      {u.id !== user.id && u.groups?.length > 0 && (
+                        <>
+                          <button
+                            onClick={() => handleSetLeader(u.id, u.groups[0].id, !u.groups[0].isLeader)}
+                            className={`text-xs px-2 py-1 rounded ${
+                              u.groups[0].isLeader
+                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {u.groups[0].isLeader ? '⭐ Líder' : 'Asignar líder'}
+                          </button>
+                          <select
+                            onChange={(e) => { handleChangeGroup(u.id, e.target.value); e.target.value = ''; }}
+                            className="border rounded text-xs px-2 py-1"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Cambiar a...</option>
+                            {groups.map(g => (
+                              <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
                     </div>
                   </div>

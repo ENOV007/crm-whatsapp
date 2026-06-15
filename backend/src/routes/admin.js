@@ -54,7 +54,8 @@ router.get('/users', async (req, res) => {
           select: {
             group: {
               select: { id: true, name: true }
-            }
+            },
+            isLeader: true
           }
         }
       },
@@ -63,7 +64,7 @@ router.get('/users', async (req, res) => {
 
     const usersWithGroups = users.map(u => ({
       ...u,
-      groups: u.groups.map(g => g.group)
+      groups: u.groups.map(g => ({ ...g.group, isLeader: g.isLeader }))
     }));
 
     res.json(usersWithGroups);
@@ -345,8 +346,42 @@ router.delete('/users/:userId/groups/:groupId', async (req, res) => {
 
     res.json({ message: 'Usuario removido del grupo.' });
   } catch (error) {
-    console.error(error);
+    console.error('Error removing user from group:', error);
     res.status(500).json({ error: 'Error al remover usuario del grupo.' });
+  }
+});
+
+// Set/unset group leader
+router.patch('/users/:userId/groups/:groupId/leader', async (req, res) => {
+  try {
+    const { userId, groupId } = req.params;
+    const { isLeader } = req.body;
+
+    const membership = await prisma.userGroup.findUnique({
+      where: { userId_groupId: { userId, groupId } }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'El usuario no es miembro de este grupo.' });
+    }
+
+    if (isLeader) {
+      await prisma.userGroup.updateMany({
+        where: { groupId },
+        data: { isLeader: false }
+      });
+    }
+
+    const updated = await prisma.userGroup.update({
+      where: { userId_groupId: { userId, groupId } },
+      data: { isLeader: !!isLeader },
+      select: { userId: true, groupId: true, isLeader: true }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error setting leader:', error);
+    res.status(500).json({ error: 'Error al asignar líder.' });
   }
 });
 
