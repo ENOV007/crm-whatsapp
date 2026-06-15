@@ -64,6 +64,7 @@ function GroupDetail({ user }) {
   const getStatusClass = (status) => {
     const classes = {
       PENDIENTE_PASTORA: 'status-pending',
+      PENDIENTE_REVISION: 'bg-orange-100 text-orange-800 px-2 py-1 rounded',
       APROBADO: 'status-approved',
       RECHAZADO: 'status-rejected',
       EN_PROGRESO: 'status-progress',
@@ -75,6 +76,7 @@ function GroupDetail({ user }) {
   const getStatusText = (status) => {
     const texts = {
       PENDIENTE_PASTORA: 'Pendiente Pastora',
+      PENDIENTE_REVISION: 'Pendiente Revisión',
       APROBADO: 'Aprobado',
       RECHAZADO: 'Rechazado',
       EN_PROGRESO: 'En Progreso',

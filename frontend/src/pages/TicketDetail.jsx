@@ -176,6 +176,7 @@ function TicketDetail({ user }) {
   const getStatusClass = (status) => {
     const classes = {
       PENDIENTE_PASTORA: 'status-pending',
+      PENDIENTE_REVISION: 'bg-orange-100 text-orange-800 px-2 py-1 rounded',
       APROBADO: 'status-approved',
       RECHAZADO: 'status-rejected',
       EN_PROGRESO: 'status-progress',
@@ -187,6 +188,7 @@ function TicketDetail({ user }) {
   const getStatusText = (status) => {
     const texts = {
       PENDIENTE_PASTORA: 'Pendiente Pastora',
+      PENDIENTE_REVISION: 'Pendiente Revisión',
       APROBADO: 'Aprobado',
       RECHAZADO: 'Rechazado',
       EN_PROGRESO: 'En Progreso',
@@ -390,6 +392,7 @@ function TicketDetail({ user }) {
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { status: 'PENDIENTE_PASTORA', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' },
+                      { status: 'PENDIENTE_REVISION', label: 'Revisión', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200' },
                       { status: 'APROBADO', label: 'Aprobar', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
                       { status: 'RECHAZADO', label: 'Rechazar', color: 'bg-red-100 text-red-800 hover:bg-red-200' },
                       { status: 'EN_PROGRESO', label: 'En Progreso', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },

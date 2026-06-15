@@ -81,23 +81,13 @@ router.get('/', auth, async (req, res) => {
     if (status) where.status = status;
 
     if (req.user.role !== 'ADMIN' && req.user.role !== 'PASTORA') {
-      const isLeaderOfAnyGroup = await prisma.userGroup.findFirst({
-        where: { userId: req.user.id, isLeader: true }
-      });
-
       where.OR = [
         { createdById: req.user.id },
         { viewers: { some: { userId: req.user.id } } },
         { visibility: 'PUBLIC' },
-        { visibility: 'PRIVATE', group: { members: { some: { userId: req.user.id } } } }
+        { visibility: 'PRIVATE', group: { members: { some: { userId: req.user.id } } } },
+        { status: 'PENDIENTE_REVISION', group: { members: { some: { userId: req.user.id, isLeader: true } } } }
       ];
-
-      if (isLeaderOfAnyGroup) {
-        where.OR.push({
-          visibility: 'INICIAL',
-          group: { members: { some: { userId: req.user.id, isLeader: true } } }
-        });
-      }
     }
 
     const tickets = await prisma.ticket.findMany({
@@ -249,7 +239,7 @@ router.patch('/:id', auth, async (req, res) => {
 
     const validPriorities = ['ALTA', 'MEDIA', 'BAJA'];
     const validVisibilities = ['INICIAL', 'PRIVATE', 'PUBLIC', 'USER_SPECIFIC'];
-    const validStatuses = ['PENDIENTE_PASTORA', 'APROBADO', 'RECHAZADO', 'EN_PROGRESO', 'COMPLETADO'];
+    const validStatuses = ['PENDIENTE_PASTORA', 'PENDIENTE_REVISION', 'APROBADO', 'RECHAZADO', 'EN_PROGRESO', 'COMPLETADO'];
 
     const currentTicket = await prisma.ticket.findUnique({
       where: { id },
@@ -419,6 +409,11 @@ router.post('/:ticketId/comments/:commentId/request-review', auth, async (req, r
       }
     });
 
+    await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { status: 'PENDIENTE_REVISION' }
+    });
+
     const leader = await prisma.userGroup.findFirst({
       where: { groupId: comment.ticket.groupId, isLeader: true },
       include: { user: { select: { id: true, name: true } } }
@@ -489,6 +484,19 @@ router.patch('/:ticketId/comments/:commentId/review', auth, async (req, res) => 
         user: { select: { id: true, name: true } }
       }
     });
+
+    if (action === 'reject') {
+      await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { status: 'RECHAZADO', visibility: 'INICIAL' }
+      });
+      await prisma.ticketViewer.deleteMany({ where: { ticketId } });
+    } else if (action === 'send-to-pastora') {
+      await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { status: 'PENDIENTE_PASTORA' }
+      });
+    }
 
     if (action === 'send-to-pastora') {
       const pastoras = await prisma.user.findMany({

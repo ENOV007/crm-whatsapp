@@ -102,6 +102,7 @@ model TicketViewer {
 
 enum TicketStatus {
   PENDIENTE_PASTORA
+  PENDIENTE_REVISION
   APROBADO
   EN_PROGRESO
   COMPLETADO
