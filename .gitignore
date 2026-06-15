@@ -12,5 +12,7 @@ backup-*
 *.dump.gz
 *.sha256
 *.bat
+*.log
 .DS_Store
 Thumbs.db
+SESION-RESUMEN-*
