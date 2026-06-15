@@ -7,8 +7,8 @@ echo "========================================="
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-bash "$SCRIPT_DIR/backup-db.sh"
-bash "$SCRIPT_DIR/backup-code.sh"
+bash "$SCRIPT_DIR/run-backup-db.sh"
+bash "$SCRIPT_DIR/run-backup-code.sh"
 bash "$SCRIPT_DIR/cleanup-backups.sh"
 
 echo ""

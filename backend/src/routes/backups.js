@@ -119,7 +119,7 @@ router.get('/drive-files', async (req, res) => {
 router.post('/trigger', async (req, res) => {
   try {
     const { type = 'manual' } = req.body;
-    const scriptName = 'backup-all.sh';
+    const scriptName = 'run-backup.sh';
     const scriptPath = path.join(SCRIPTS_DIR, scriptName);
     const altPath = path.join(__dirname, '../../scripts', scriptName);
 

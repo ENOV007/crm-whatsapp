@@ -40,7 +40,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           chmod +x scripts/*.sh
-          bash scripts/backup-all.sh
+          bash scripts/run-backup.sh
 
       - name: Backup summary
         if: success()
