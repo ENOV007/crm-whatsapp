@@ -156,7 +156,7 @@ function TicketDetail({ user }) {
       return;
     }
     try {
-      await ticketsAPI.update(id, { groupId: editGroupId, visibility: 'PRIVATE', viewerIds: [] });
+      await ticketsAPI.update(id, { groupId: editGroupId, visibility: 'DRAFT', viewerIds: [] });
       setIsEditingGroup(false);
       fetchTicket();
     } catch (error) {
@@ -526,10 +526,11 @@ function TicketDetail({ user }) {
                 <dt className="text-gray-500 font-bold">Visibilidad:</dt>
                 {isEditingVisibility ? (
                   <div className="flex flex-col gap-2">
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
                       {[
+                        { value: 'DRAFT', label: '📝 Borrador' },
                         { value: 'PRIVATE', label: '🔒 Grupo' },
-                        { value: 'PUBLIC', label: '🌐 Público' },
+                        { value: 'PUBLIC', label: '🌐 Iglesia' },
                         { value: 'USER_SPECIFIC', label: '👤 Usuario' }
                       ].map(v => (
                         <button
@@ -573,12 +574,14 @@ function TicketDetail({ user }) {
                     <span className={`text-xs px-2 py-1 rounded font-medium ${
                       ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-800' :
                       ticket.visibility === 'USER_SPECIFIC' ? 'bg-orange-100 text-orange-800' :
+                      ticket.visibility === 'DRAFT' ? 'bg-gray-100 text-gray-800' :
                       'bg-purple-100 text-purple-800'
                     }`}>
-                      {ticket.visibility === 'PUBLIC' ? '🌐 Público' :
+                      {ticket.visibility === 'PUBLIC' ? '🌐 Iglesia' :
                        ticket.visibility === 'USER_SPECIFIC'
                          ? `👤 Solo ${ticket.viewers?.map(v => v.user.name).join(', ') || 'usuario'}`
-                         : '🔒 Privado'}
+                         : ticket.visibility === 'DRAFT' ? '📝 Borrador'
+                         : '🔒 Grupo'}
                     </span>
                     {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
                       <button
@@ -685,8 +688,9 @@ function TicketDetail({ user }) {
               <label className="block text-gray-700 mb-2">Visibilidad</label>
               <div className="flex gap-2">
                 {[
-                  { value: 'PRIVATE', label: 'Privado', desc: 'Solo el grupo', icon: '🔒', color: 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200' },
-                  { value: 'PUBLIC', label: 'Público', desc: 'Todos los miembros', icon: '🌐', color: 'bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200' },
+                  { value: 'DRAFT', label: 'Borrador', desc: 'Solo creador y pastora', icon: '📝', color: 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200' },
+                  { value: 'PRIVATE', label: 'Privado', desc: 'Grupo', icon: '🔒', color: 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200' },
+                  { value: 'PUBLIC', label: 'Público', desc: 'Toda la iglesia', icon: '🌐', color: 'bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200' },
                   { value: 'USER_SPECIFIC', label: 'Privado para usuario', desc: '', icon: '👤', color: 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200' }
                 ].map(v => (
                   <button
