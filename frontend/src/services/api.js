@@ -87,4 +87,12 @@ export const adminAPI = {
   removeUserFromGroup: (userId, groupId) => api.delete(`/admin/users/${userId}/groups/${groupId}`)
 };
 
+// Backup API
+export const backupAPI = {
+  getLogs: (params) => api.get('/backups/logs', { params }),
+  getStats: () => api.get('/backups/stats'),
+  getDriveFiles: () => api.get('/backups/drive-files'),
+  trigger: (type = 'manual') => api.post('/backups/trigger', { type })
+};
+
 export default api;

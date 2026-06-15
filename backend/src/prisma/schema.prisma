@@ -117,3 +117,18 @@ model Notification {
 
   @@index([userId, read])
 }
+
+model BackupLog {
+  id          String     @id @default(uuid())
+  type        String
+  status      String
+  fileName    String?
+  fileSize    String?
+  message     String?
+  triggeredBy String
+  duration    Int?
+  createdAt   DateTime   @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+}
