@@ -10,6 +10,7 @@ function TicketDetail({ user }) {
   const [isActionPlan, setIsActionPlan] = useState(false);
   const [approveDeadline, setApproveDeadline] = useState('');
   const [approvePriority, setApprovePriority] = useState('BAJA');
+  const [approveVisibility, setApproveVisibility] = useState('PUBLIC');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [editDeadline, setEditDeadline] = useState('');
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
@@ -45,11 +46,12 @@ function TicketDetail({ user }) {
     }
   };
 
-  const handleStatusChange = async (newStatus, deadline = null, priority = null) => {
+  const handleStatusChange = async (newStatus, deadline = null, priority = null, visibility = null) => {
     try {
       const data = { status: newStatus };
       if (deadline) data.deadline = deadline;
       if (priority) data.priority = priority;
+      if (visibility) data.visibility = visibility;
       await ticketsAPI.update(id, data);
       fetchTicket();
     } catch (error) {
@@ -62,10 +64,11 @@ function TicketDetail({ user }) {
       alert('Debes seleccionar una fecha límite para aprobar.');
       return;
     }
-    handleStatusChange('APROBADO', approveDeadline, approvePriority);
+    handleStatusChange('APROBADO', approveDeadline, approvePriority, approveVisibility);
     setShowApproveModal(false);
     setApproveDeadline('');
     setApprovePriority('BAJA');
+    setApproveVisibility('PUBLIC');
   };
 
   const handleSaveDeadline = async () => {
@@ -406,6 +409,14 @@ function TicketDetail({ user }) {
                   </div>
                 )}
               </div>
+              <div className="flex justify-between items-center">
+                <dt className="text-gray-500 font-bold">Visibilidad:</dt>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                  ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                }`}>
+                  {ticket.visibility === 'PUBLIC' ? '🌐 Público' : '🔒 Privado'}
+                </span>
+              </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Última actualización:</dt>
                 <dd>{new Date(ticket.updatedAt).toLocaleDateString()}</dd>
@@ -457,9 +468,33 @@ function TicketDetail({ user }) {
                 ))}
               </div>
             </div>
+            <div className="mb-6">
+              <label className="block text-gray-700 mb-2">Visibilidad</label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'PRIVATE', label: 'Privado', desc: 'Solo el grupo', icon: '🔒', color: 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200' },
+                  { value: 'PUBLIC', label: 'Público', desc: 'Todos los miembros', icon: '🌐', color: 'bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200' }
+                ].map(v => (
+                  <button
+                    key={v.value}
+                    type="button"
+                    onClick={() => setApproveVisibility(v.value)}
+                    className={`flex-1 py-3 px-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                      approveVisibility === v.value
+                        ? `${v.color} ring-2 ring-offset-1 ring-blue-400`
+                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="text-lg">{v.icon}</span>
+                    <div className="font-medium">{v.label}</div>
+                    <div className="text-xs opacity-75">{v.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex justify-end space-x-3">
               <button
-                onClick={() => { setShowApproveModal(false); setApproveDeadline(''); setApprovePriority('MEDIA'); }}
+                onClick={() => { setShowApproveModal(false); setApproveDeadline(''); setApprovePriority('BAJA'); setApproveVisibility('PUBLIC'); }}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
                 Cancelar

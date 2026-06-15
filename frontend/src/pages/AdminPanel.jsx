@@ -597,6 +597,13 @@ function AdminPanel({ user }) {
                               'text-green-600'
                             }`}>• {ticket.priority}</span>
                           )}
+                          {ticket.visibility && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                            }`}>
+                              {ticket.visibility === 'PUBLIC' ? '🌐' : '🔒'}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
                           <span>{ticket.group.name}</span>

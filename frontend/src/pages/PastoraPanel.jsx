@@ -179,6 +179,13 @@ function PastoraPanel({ user }) {
                           Prioridad: • {ticket.priority}
                         </span>
                       )}
+                      {ticket.visibility && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded mt-1 inline-block ml-2 ${
+                          ticket.visibility === 'PUBLIC' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {ticket.visibility === 'PUBLIC' ? '🌐' : '🔒'}
+                        </span>
+                      )}
                     </div>
                     <span className={`text-xs px-2 py-1 rounded ${getStatusColor(ticket.status)}`}>
                       {getStatusText(ticket.status)}

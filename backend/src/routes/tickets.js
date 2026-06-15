@@ -78,6 +78,13 @@ router.get('/', auth, async (req, res) => {
     if (groupId) where.groupId = groupId;
     if (status) where.status = status;
 
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'PASTORA') {
+      where.OR = [
+        { visibility: 'PUBLIC' },
+        { group: { members: { some: { userId: req.user.id } } } }
+      ];
+    }
+
     const tickets = await prisma.ticket.findMany({
       where,
       select: {
@@ -86,6 +93,7 @@ router.get('/', auth, async (req, res) => {
         description: true,
         status: true,
         priority: true,
+        visibility: true,
         deadline: true,
         createdAt: true,
         group: { select: { id: true, name: true } },
@@ -112,6 +120,7 @@ router.get('/pastora', auth, isPastora, async (req, res) => {
         description: true,
         status: true,
         priority: true,
+        visibility: true,
         deadline: true,
         createdAt: true,
         group: { select: { id: true, name: true } },
@@ -147,6 +156,7 @@ router.get('/all-visible', auth, async (req, res) => {
         description: true,
         status: true,
         priority: true,
+        visibility: true,
         deadline: true,
         hidden: true,
         createdAt: true,
@@ -176,6 +186,7 @@ router.get('/:id', auth, async (req, res) => {
         description: true,
         status: true,
         priority: true,
+        visibility: true,
         deadline: true,
         createdAt: true,
         updatedAt: true,
@@ -209,22 +220,25 @@ router.get('/:id', auth, async (req, res) => {
 router.patch('/:id', auth, isPastora, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, deadline, priority } = req.body;
+    const { status, deadline, priority, visibility } = req.body;
 
     const validPriorities = ['ALTA', 'MEDIA', 'BAJA'];
+    const validVisibilities = ['PRIVATE', 'PUBLIC'];
 
     const ticket = await prisma.ticket.update({
       where: { id },
       data: {
         ...(status && { status }),
         ...(deadline && { deadline: new Date(deadline) }),
-        ...(priority && validPriorities.includes(priority) && { priority })
+        ...(priority && validPriorities.includes(priority) && { priority }),
+        ...(visibility && validVisibilities.includes(visibility) && { visibility })
       },
       select: {
         id: true,
         title: true,
         status: true,
         priority: true,
+        visibility: true,
         deadline: true,
         group: { select: { id: true, name: true } }
       }

@@ -10,7 +10,8 @@ RUN npx prisma generate --schema=src/prisma/schema.prisma
 
 FROM node:18-alpine
 
-RUN apk add --no-cache bash wget openssl postgresql-client
+RUN apk add --no-cache bash wget openssl postgresql-client curl
+RUN curl -s https://rclone.org/install.sh | bash
 
 WORKDIR /app
 
@@ -23,6 +24,7 @@ COPY backend/ .
 
 COPY backend/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
+RUN chmod +x /app/scripts/*.sh
 
 EXPOSE 3001
 

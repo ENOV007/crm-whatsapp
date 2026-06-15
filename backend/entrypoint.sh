@@ -32,5 +32,14 @@ else
   echo "Base de datos tiene datos, saltando seed."
 fi
 
+echo "Configurando rclone..."
+if [ -n "$RCLONE_CONFIG" ]; then
+  mkdir -p ~/.config/rclone
+  echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+  echo "rclone configurado."
+else
+  echo "Sin RCLONE_CONFIG, backups a Drive deshabilitados."
+fi
+
 echo "Iniciando servidor..."
 exec node src/index.js
