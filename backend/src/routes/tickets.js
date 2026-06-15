@@ -81,12 +81,23 @@ router.get('/', auth, async (req, res) => {
     if (status) where.status = status;
 
     if (req.user.role !== 'ADMIN' && req.user.role !== 'PASTORA') {
+      const isLeaderOfAnyGroup = await prisma.userGroup.findFirst({
+        where: { userId: req.user.id, isLeader: true }
+      });
+
       where.OR = [
         { createdById: req.user.id },
         { viewers: { some: { userId: req.user.id } } },
         { visibility: 'PUBLIC' },
         { visibility: 'PRIVATE', group: { members: { some: { userId: req.user.id } } } }
       ];
+
+      if (isLeaderOfAnyGroup) {
+        where.OR.push({
+          visibility: 'INICIAL',
+          group: { members: { some: { userId: req.user.id, isLeader: true } } }
+        });
+      }
     }
 
     const tickets = await prisma.ticket.findMany({
