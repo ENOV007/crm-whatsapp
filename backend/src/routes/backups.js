@@ -8,6 +8,27 @@ const fs = require('fs');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+router.get('/debug', async (req, res) => {
+  const dirs = [
+    path.join(__dirname, '../../scripts'),
+    path.join(__dirname, '../scripts'),
+    path.join(__dirname, 'scripts'),
+    '/app/scripts',
+    path.join(process.cwd(), 'scripts')
+  ];
+  const results = {};
+  for (const dir of dirs) {
+    try {
+      results[dir] = fs.existsSync(dir) ? fs.readdirSync(dir) : 'NOT_FOUND';
+    } catch(e) {
+      results[dir] = e.message;
+    }
+  }
+  results.__dirname = __dirname;
+  results.cwd = process.cwd();
+  res.json(results);
+});
+
 router.use(auth, isAdmin);
 
 const SCRIPTS_DIR = path.join(__dirname, '../../scripts');
@@ -100,9 +121,18 @@ router.post('/trigger', async (req, res) => {
     const { type = 'manual' } = req.body;
     const scriptName = 'backup-all.sh';
     const scriptPath = path.join(SCRIPTS_DIR, scriptName);
+    const altPath = path.join(__dirname, '../../scripts', scriptName);
 
-    if (!fs.existsSync(scriptPath)) {
-      return res.status(404).json({ error: 'Script de backup no encontrado.' });
+    const resolvedPath = fs.existsSync(scriptPath) ? scriptPath :
+                         fs.existsSync(altPath) ? altPath : null;
+
+    if (!resolvedPath) {
+      return res.status(404).json({
+        error: 'Script de backup no encontrado.',
+        searched: [scriptPath, altPath],
+        cwd: process.cwd(),
+        dirname: __dirname
+      });
     }
 
     const logEntry = await prisma.backupLog.create({
@@ -116,7 +146,7 @@ router.post('/trigger', async (req, res) => {
 
     const startTime = Date.now();
 
-    exec(`bash "${scriptPath}"`, {
+    exec(`bash "${resolvedPath}"`, {
       timeout: 300000,
       env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
     }, async (error, stdout, stderr) => {
