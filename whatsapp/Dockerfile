@@ -1,1 +1,1 @@
-FROM atendai/wppconnect-server:latest
+FROM wppconnect/server-cli:latest
