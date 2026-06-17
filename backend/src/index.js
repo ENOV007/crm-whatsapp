@@ -50,10 +50,43 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Algo salió mal!' });
 });
 
+// WhatsApp Scheduler
+const { sendAllGroupStatusSummaries, sendAllDeadlineWarnings } = require('./services/whatsappNotifications');
+
+function scheduleWhatsAppNotifications() {
+  const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  setInterval(async () => {
+    console.log('[Scheduler] Sending status summaries...');
+    try {
+      const results = await sendAllGroupStatusSummaries();
+      console.log('[Scheduler] Status summaries sent:', results);
+    } catch (error) {
+      console.error('[Scheduler] Error sending status summaries:', error.message);
+    }
+  }, THREE_DAYS);
+
+  setInterval(async () => {
+    console.log('[Scheduler] Checking deadline warnings...');
+    try {
+      const results = await sendAllDeadlineWarnings();
+      if (results.length > 0) {
+        console.log('[Scheduler] Deadline warnings sent:', results);
+      }
+    } catch (error) {
+      console.error('[Scheduler] Error sending deadline warnings:', error.message);
+    }
+  }, ONE_DAY);
+
+  console.log('[Scheduler] WhatsApp notifications scheduled (status: 3 days, deadlines: daily)');
+}
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
+  scheduleWhatsAppNotifications();
 });
 
 module.exports = app;

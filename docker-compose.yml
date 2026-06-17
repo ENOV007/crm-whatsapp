@@ -47,5 +47,23 @@ services:
       backend:
         condition: service_healthy
 
+  whatsapp:
+    image: atendai/wppconnect-server:latest
+    container_name: crm-whatsapp
+    restart: unless-stopped
+    ports:
+      - "${WPPCONNECT_PORT:-21465}:21465"
+    environment:
+      - SECRET_KEY=${WPPCONNECT_SECRET:-crm-whatsapp-secret-key-2026}
+      - SERVER_PORT=21465
+      - START_ALL_SESSION=true
+      - TOKEN_STORE_TYPE=file
+      - WEBHOOK_URL=${WPPCONNECT_WEBHOOK_URL:-}
+      - WEBHOOK_AUTO_DOWNLOAD=true
+      - WEBHOOK_READ_MESSAGE=true
+    volumes:
+      - wppconnect_tokens:/usr/src/app/wppconnect_tokens
+
 volumes:
   postgres_data:
+  wppconnect_tokens:

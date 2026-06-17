@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { adminAPI, authAPI, ticketsAPI, backupAPI } from '../services/api';
+import { adminAPI, authAPI, ticketsAPI, backupAPI, whatsappAPI } from '../services/api';
 
 function AdminPanel({ user }) {
   const [stats, setStats] = useState(null);
@@ -21,6 +21,14 @@ function AdminPanel({ user }) {
   const [backupFiles, setBackupFiles] = useState([]);
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupTriggering, setBackupTriggering] = useState(false);
+  const [whatsappStatus, setWhatsappStatus] = useState(null);
+  const [whatsappQR, setWhatsappQR] = useState(null);
+  const [whatsappGroups, setWhatsappGroups] = useState([]);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
+  const [whatsappTestPhone, setWhatsappTestPhone] = useState('');
+  const [whatsappTestMsg, setWhatsappTestMsg] = useState('');
+  const [whatsappTestSending, setWhatsappTestSending] = useState(false);
+  const [linkingGroup, setLinkingGroup] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -29,6 +37,12 @@ function AdminPanel({ user }) {
   useEffect(() => {
     if (activeTab === 'backups') {
       fetchBackupData();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'whatsapp') {
+      fetchWhatsAppData();
     }
   }, [activeTab]);
 
@@ -110,6 +124,132 @@ function AdminPanel({ user }) {
     } catch (error) {
       console.error('Error triggering auto backup:', error);
       alert('Error al iniciar backup automático');
+    }
+  };
+
+  const fetchWhatsAppData = async () => {
+    setWhatsappLoading(true);
+    try {
+      const [statusRes, groupsRes] = await Promise.all([
+        whatsappAPI.getStatus(),
+        whatsappAPI.getGroups()
+      ]);
+      setWhatsappStatus(statusRes.data);
+      setWhatsappGroups(groupsRes.data || []);
+      if (!statusRes.data?.connected) {
+        const qrRes = await whatsappAPI.getQR();
+        if (qrRes.data?.qr) setWhatsappQR(qrRes.data.qr);
+      }
+    } catch (error) {
+      console.error('Error fetching WhatsApp data:', error);
+      setWhatsappStatus({ connected: false, error: error.message });
+    } finally {
+      setWhatsappLoading(false);
+    }
+  };
+
+  const handleWhatsAppRestart = async () => {
+    if (!confirm('¿Reiniciar sesión de WhatsApp? Necesitarás escanear el QR de nuevo.')) return;
+    try {
+      await whatsappAPI.restart();
+      setWhatsappQR(null);
+      setWhatsappStatus({ connected: false });
+      setTimeout(fetchWhatsAppData, 3000);
+    } catch (error) {
+      console.error('Error restarting WhatsApp:', error);
+      alert('Error al reiniciar sesión');
+    }
+  };
+
+  const handleLinkGroup = async (crmGroupId, whatsappGroupId) => {
+    try {
+      await whatsappAPI.linkGroup(crmGroupId, whatsappGroupId);
+      setGroups(groups.map(g => g.id === crmGroupId ? { ...g, whatsappGroupId } : g));
+      setLinkingGroup(null);
+      alert('Grupo vinculado correctamente');
+    } catch (error) {
+      console.error('Error linking group:', error);
+      alert('Error al vincular grupo');
+    }
+  };
+
+  const handleUnlinkGroup = async (crmGroupId) => {
+    try {
+      await whatsappAPI.linkGroup(crmGroupId, null);
+      setGroups(groups.map(g => g.id === crmGroupId ? { ...g, whatsappGroupId: null } : g));
+      alert('Grupo desvinculado');
+    } catch (error) {
+      console.error('Error unlinking group:', error);
+      alert('Error al desvincular grupo');
+    }
+  };
+
+  const handleSendStatusSummary = async (crmGroupId) => {
+    if (!confirm('¿Enviar resumen de estado a este grupo de WhatsApp?')) return;
+    try {
+      await fetch(`http://localhost:3001/api/whatsapp/notify/status/${crmGroupId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      alert('Resumen enviado');
+    } catch (error) {
+      console.error('Error sending status summary:', error);
+      alert('Error al enviar resumen');
+    }
+  };
+
+  const handleSendAllStatusSummaries = async () => {
+    if (!confirm('¿Enviar resumen de estado a TODOS los grupos vinculados?')) return;
+    try {
+      await fetch('http://localhost:3001/api/whatsapp/notify/status-all', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      alert('Resúmenes enviados a todos los grupos');
+    } catch (error) {
+      console.error('Error sending all status summaries:', error);
+      alert('Error al enviar resúmenes');
+    }
+  };
+
+  const handleSendDeadlineWarnings = async () => {
+    if (!confirm('¿Enviar alertas de fechas límite a todos los grupos?')) return;
+    try {
+      await fetch('http://localhost:3001/api/whatsapp/notify/deadlines', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      alert('Alertas de fecha límite enviadas');
+    } catch (error) {
+      console.error('Error sending deadline warnings:', error);
+      alert('Error al enviar alertas');
+    }
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!whatsappTestPhone || !whatsappTestMsg) {
+      alert('Completa teléfono y mensaje');
+      return;
+    }
+    setWhatsappTestSending(true);
+    try {
+      await whatsappAPI.send(whatsappTestPhone, whatsappTestMsg);
+      alert('Mensaje enviado');
+      setWhatsappTestMsg('');
+    } catch (error) {
+      console.error('Error sending test message:', error);
+      alert('Error al enviar mensaje');
+    } finally {
+      setWhatsappTestSending(false);
     }
   };
 
@@ -282,6 +422,7 @@ function AdminPanel({ user }) {
           { id: 'overview', label: 'Vista General' },
           { id: 'users', label: 'Gestión de Usuarios' },
           { id: 'groups', label: 'Gestión de Grupos' },
+          { id: 'whatsapp', label: 'WhatsApp' },
           { id: 'tickets', label: 'Gestión de Tickets' },
           { id: 'backups', label: 'Backups' },
           { id: 'security', label: 'Seguridad' },
@@ -608,6 +749,200 @@ function AdminPanel({ user }) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Tab */}
+      {activeTab === 'whatsapp' && (
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">WhatsApp (WPPConnect)</h2>
+            <button
+              onClick={fetchWhatsAppData}
+              disabled={whatsappLoading}
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm disabled:opacity-50"
+            >
+              {whatsappLoading ? 'Cargando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          {/* Connection Status */}
+          <div className="card mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${whatsappStatus?.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <div>
+                  <p className="font-medium">
+                    {whatsappStatus?.connected ? 'Conectado a WhatsApp' : 'Desconectado'}
+                  </p>
+                  {whatsappStatus?.session && (
+                    <p className="text-xs text-gray-500">Sesión: {whatsappStatus.session}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleWhatsAppRestart}
+                className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 text-sm"
+              >
+                Reiniciar Sesión
+              </button>
+            </div>
+          </div>
+
+          {/* QR Code */}
+          {!whatsappStatus?.connected && (
+            <div className="card mb-6">
+              <h3 className="font-semibold mb-4">Código QR</h3>
+              {whatsappQR ? (
+                <div className="flex flex-col items-center">
+                  <img src={whatsappQR} alt="QR Code" className="border rounded-lg" style={{ maxWidth: 300 }} />
+                  <p className="text-sm text-gray-500 mt-3">Escanea con tu WhatsApp (Ajustes > Dispositivos vinculados)</p>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  {whatsappLoading ? 'Cargando QR...' : 'Haz clic en "Actualizar" para obtener el QR'}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Link CRM Groups to WhatsApp Groups */}
+          <div className="card mb-6">
+            <h3 className="font-semibold mb-4">Vincular Grupos CRM ↔ WhatsApp</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Asociá cada grupo del CRM con su grupo de WhatsApp correspondiente. Las notificaciones de tickets se enviarán automáticamente.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-3">Grupo CRM</th>
+                    <th className="text-left py-2 px-3">Grupo WhatsApp</th>
+                    <th className="text-left py-2 px-3">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map(g => (
+                    <tr key={g.id} className="border-b hover:bg-gray-50">
+                      <td className="py-2 px-3 font-medium">{g.name}</td>
+                      <td className="py-2 px-3">
+                        {g.whatsappGroupId ? (
+                          <span className="inline-flex items-center bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                            {whatsappGroups.find(wg => wg.id === g.whatsappGroupId)?.name || g.whatsappGroupId}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">No vinculado</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        {linkingGroup === g.id ? (
+                          <div className="flex items-center gap-2">
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) handleLinkGroup(g.id, e.target.value);
+                                setLinkingGroup(null);
+                              }}
+                              className="border rounded px-2 py-1 text-xs"
+                              defaultValue=""
+                              autoFocus
+                            >
+                              <option value="" disabled>Seleccionar grupo WA...</option>
+                              {whatsappGroups.map(wg => (
+                                <option key={wg.id} value={wg.id}>{wg.name || wg.id}</option>
+                              ))}
+                            </select>
+                            <button onClick={() => setLinkingGroup(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                          </div>
+                        ) : g.whatsappGroupId ? (
+                          <button
+                            onClick={() => handleUnlinkGroup(g.id)}
+                            className="text-red-600 hover:text-red-800 text-xs"
+                          >
+                            Desvincular
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setLinkingGroup(g.id)}
+                            className="text-blue-600 hover:text-blue-800 text-xs"
+                          >
+                            + Vincular
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {whatsappGroups.length === 0 && whatsappStatus?.connected && (
+              <p className="text-sm text-yellow-600 mt-3">
+                No se encontraron grupos de WhatsApp. Creá grupos en tu celular primero.
+              </p>
+            )}
+          </div>
+
+          {/* Notification Actions */}
+          <div className="card mb-6">
+            <h3 className="font-semibold mb-4">Acciones de Notificación</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Enviá resúmenes de estado y alertas de fechas límite a los grupos de WhatsApp vinculados.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={handleSendAllStatusSummaries}
+                disabled={!whatsappStatus?.connected}
+                className="p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-blue-600 text-lg">📊</span>
+                  <span className="font-medium">Enviar Resumen de Estado</span>
+                </div>
+                <p className="text-xs text-gray-500">A todos los grupos vinculados (cada 3 días automático)</p>
+              </button>
+              <button
+                onClick={handleSendDeadlineWarnings}
+                disabled={!whatsappStatus?.connected}
+                className="p-4 border-2 border-red-200 rounded-lg hover:bg-red-50 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-red-600 text-lg">⚠️</span>
+                  <span className="font-medium">Enviar Alertas de Fecha Límite</span>
+                </div>
+                <p className="text-xs text-gray-500">A grupos con casos próximos a vencer (diario automático)</p>
+              </button>
+            </div>
+          </div>
+
+          {/* Test Message */}
+          <div className="card">
+            <h3 className="font-semibold mb-4">Enviar Mensaje de Prueba</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input
+                type="tel"
+                placeholder="Teléfono (ej: 541130901676)"
+                value={whatsappTestPhone}
+                onChange={(e) => setWhatsappTestPhone(e.target.value)}
+                className="border rounded-lg px-3 py-2"
+              />
+              <input
+                type="text"
+                placeholder="Mensaje de prueba"
+                value={whatsappTestMsg}
+                onChange={(e) => setWhatsappTestMsg(e.target.value)}
+                className="border rounded-lg px-3 py-2"
+              />
+              <button
+                onClick={handleSendTestMessage}
+                disabled={whatsappTestSending || !whatsappStatus?.connected}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {whatsappTestSending ? 'Enviando...' : 'Enviar'}
+              </button>
+            </div>
+            {!whatsappStatus?.connected && (
+              <p className="text-sm text-red-500 mt-2">Conectá WhatsApp primero para enviar mensajes.</p>
+            )}
           </div>
         </div>
       )}

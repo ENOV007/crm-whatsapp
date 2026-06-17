@@ -269,17 +269,18 @@ router.delete('/groups/:id', async (req, res) => {
 router.patch('/groups/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, isPrivate } = req.body;
+    const { name, description, isPrivate, whatsappGroupId } = req.body;
 
     const data = {};
     if (name !== undefined) data.name = name.trim();
     if (description !== undefined) data.description = description?.trim() || null;
     if (isPrivate !== undefined) data.isPrivate = isPrivate;
+    if (whatsappGroupId !== undefined) data.whatsappGroupId = whatsappGroupId?.trim() || null;
 
     const group = await prisma.group.update({
       where: { id },
       data,
-      select: { id: true, name: true, description: true, isPrivate: true }
+      select: { id: true, name: true, description: true, isPrivate: true, whatsappGroupId: true }
     });
 
     res.json(group);
@@ -297,6 +298,7 @@ router.get('/groups', async (req, res) => {
         id: true,
         name: true,
         description: true,
+        whatsappGroupId: true,
         _count: {
           select: { members: true, tickets: true }
         }

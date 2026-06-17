@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { auth, isPastora } = require('../middleware/auth');
+const { sendNewTicketNotification } = require('../services/whatsappNotifications');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -63,6 +64,11 @@ router.post('/', auth, async (req, res) => {
         }
       });
     }
+
+    // Send WhatsApp notification to group
+    sendNewTicketNotification(groupId, ticket).catch(err =>
+      console.error('WhatsApp notification failed:', err.message)
+    );
 
     res.status(201).json(ticket);
   } catch (error) {

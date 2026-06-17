@@ -99,4 +99,16 @@ export const backupAPI = {
   download: () => api.post('/backups/download', {}, { responseType: 'blob' })
 };
 
+// WhatsApp API
+export const whatsappAPI = {
+  getStatus: () => api.get('/whatsapp/status'),
+  getQR: () => api.get('/whatsapp/qr'),
+  restart: () => api.post('/whatsapp/restart'),
+  send: (phone, message) => api.post('/whatsapp/send', { phone, message }),
+  sendGroup: (groupId, message) => api.post('/whatsapp/send-group', { groupId, message }),
+  createGroup: (name, participants) => api.post('/whatsapp/create-group', { name, participants }),
+  getGroups: () => api.get('/whatsapp/groups'),
+  linkGroup: (crmGroupId, whatsappGroupId) => api.patch(`/admin/groups/${crmGroupId}`, { whatsappGroupId })
+};
+
 export default api;
