@@ -83,8 +83,8 @@ router.get('/qr', auth, async (req, res) => {
 router.post('/restart', auth, async (req, res) => {
   try {
     await ensureToken();
-    await wppApi.post(`/api/${WPPCONNECT_SESSION}/logout`);
-    res.json({ message: 'Session logged out. Restart to get new QR.' });
+    await wppApi.post(`/api/${WPPCONNECT_SESSION}/close-session`);
+    res.json({ message: 'Session closed. Restart to get new QR.' });
   } catch (error) {
     res.status(500).json({ error: 'Error restarting session', details: error.response?.data || error.message });
   }
