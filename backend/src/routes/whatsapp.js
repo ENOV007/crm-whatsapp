@@ -34,8 +34,8 @@ async function ensureToken() {
   if (WPPCONNECT_TOKEN) return;
   try {
     const resp = await axios.post(`${WPPCONNECT_URL}/api/${WPPCONNECT_SESSION}/${WPPCONNECT_SECRET}/generate-token`);
-    if (resp.data?.full) {
-      WPPCONNECT_TOKEN = resp.data.full;
+    if (resp.data?.token) {
+      WPPCONNECT_TOKEN = resp.data.token;
       wppApi.defaults.headers['Authorization'] = `Bearer ${WPPCONNECT_TOKEN}`;
       console.log('[WhatsApp] Token generated automatically');
     }
