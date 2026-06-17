@@ -129,6 +129,7 @@ function AdminPanel({ user }) {
 
   const fetchWhatsAppData = async () => {
     setWhatsappLoading(true);
+    setWhatsappQR(null);
     try {
       const [statusRes, groupsRes] = await Promise.all([
         whatsappAPI.getStatus(),
@@ -137,14 +138,35 @@ function AdminPanel({ user }) {
       setWhatsappStatus(statusRes.data);
       setWhatsappGroups(groupsRes.data || []);
       if (!statusRes.data?.connected) {
-        const qrRes = await whatsappAPI.getQR();
-        if (qrRes.data?.qr) setWhatsappQR(qrRes.data.qr);
+        pollForQR(0);
       }
     } catch (error) {
       console.error('Error fetching WhatsApp data:', error);
       setWhatsappStatus({ connected: false, error: error.message });
     } finally {
       setWhatsappLoading(false);
+    }
+  };
+
+  const pollForQR = async (attempt) => {
+    if (attempt >= 15) {
+      setWhatsappQR(null);
+      return;
+    }
+    try {
+      const qrRes = await whatsappAPI.getQR();
+      if (qrRes.data?.qr) {
+        setWhatsappQR(qrRes.data.qr);
+        return;
+      }
+      if (qrRes.data?.data?.status === 'CONNECTED') {
+        setWhatsappStatus({ connected: true, session: 'crm-session' });
+        setWhatsappQR(null);
+        return;
+      }
+      setTimeout(() => pollForQR(attempt + 1), 2000);
+    } catch (error) {
+      setTimeout(() => pollForQR(attempt + 1), 2000);
     }
   };
 
@@ -797,11 +819,11 @@ function AdminPanel({ user }) {
               {whatsappQR ? (
                 <div className="flex flex-col items-center">
                   <img src={whatsappQR} alt="QR Code" className="border rounded-lg" style={{ maxWidth: 300 }} />
-                  <p className="text-sm text-gray-500 mt-3">Escanea con tu WhatsApp (Ajustes > Dispositivos vinculados)</p>
+                  <p className="text-sm text-gray-500 mt-3">Escanea con tu WhatsApp (Ajustes &gt; Dispositivos vinculados)</p>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
-                  {whatsappLoading ? 'Cargando QR...' : 'Haz clic en "Actualizar" para obtener el QR'}
+                  {whatsappLoading ? 'Generando QR... puede tardar 15-20 segundos' : 'Haz clic en "Actualizar" para obtener el QR'}
                 </div>
               )}
             </div>
