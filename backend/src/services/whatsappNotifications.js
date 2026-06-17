@@ -3,7 +3,7 @@ const axios = require('axios');
 
 const prisma = new PrismaClient();
 
-const WPPCONNECT_URL = process.env.WPPCONNECT_URL || 'http://whatsapp.railway.internal';
+const WPPCONNECT_URL = process.env.WPPCONNECT_URL || 'http://whatsapp.railway.internal:8080';
 const WPPCONNECT_SESSION = process.env.WPPCONNECT_SESSION || 'crm-session';
 const WPPCONNECT_SECRET = process.env.WPPCONNECT_SECRET || 'THISISMYSECURETOKEN';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://crm-familiayproposito.up.railway.app';
