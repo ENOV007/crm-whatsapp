@@ -17,7 +17,9 @@ const prisma = new PrismaClient();
 
 const WPPCONNECT_URL = process.env.WPPCONNECT_URL || 'http://whatsapp:21465';
 const WPPCONNECT_SESSION = process.env.WPPCONNECT_SESSION || 'crm-session';
-const WPPCONNECT_TOKEN = process.env.WPPCONNECT_TOKEN || '';
+const WPPCONNECT_SECRET = process.env.WPPCONNECT_SECRET || 'THISISMYSECURETOKEN';
+
+let WPPCONNECT_TOKEN = process.env.WPPCONNECT_TOKEN || '';
 
 const wppApi = axios.create({
   baseURL: WPPCONNECT_URL,
@@ -28,9 +30,24 @@ const wppApi = axios.create({
   timeout: 30000
 });
 
+async function ensureToken() {
+  if (WPPCONNECT_TOKEN) return;
+  try {
+    const resp = await axios.post(`${WPPCONNECT_URL}/api/${WPPCONNECT_SESSION}/${WPPCONNECT_SECRET}/generate-token`);
+    if (resp.data?.full) {
+      WPPCONNECT_TOKEN = resp.data.full;
+      wppApi.defaults.headers['Authorization'] = `Bearer ${WPPCONNECT_TOKEN}`;
+      console.log('[WhatsApp] Token generated automatically');
+    }
+  } catch (error) {
+    console.error('[WhatsApp] Could not auto-generate token:', error.message);
+  }
+}
+
 // Health check - WPPConnect connection status
 router.get('/status', auth, async (req, res) => {
   try {
+    await ensureToken();
     const response = await wppApi.post(`/api/${WPPCONNECT_SESSION}/start-session`);
     res.json({
       connected: response.data?.isConnected || false,
