@@ -67,9 +67,10 @@ router.get('/status', auth, async (req, res) => {
 // Get QR code for connecting WhatsApp
 router.get('/qr', auth, async (req, res) => {
   try {
+    await ensureToken();
     const response = await wppApi.post(`/api/${WPPCONNECT_SESSION}/start-session`);
-    if (response.data?.base64) {
-      res.json({ qr: response.data.base64 });
+    if (response.data?.qrcode) {
+      res.json({ qr: response.data.qrcode });
     } else {
       res.json({ message: 'Session already connected or QR not ready', data: response.data });
     }
@@ -81,7 +82,8 @@ router.get('/qr', auth, async (req, res) => {
 // Restart session
 router.post('/restart', auth, async (req, res) => {
   try {
-    await wppApi.delete(`/api/${WPPCONNECT_SESSION}/logout`);
+    await ensureToken();
+    await wppApi.post(`/api/${WPPCONNECT_SESSION}/logout`);
     res.json({ message: 'Session logged out. Restart to get new QR.' });
   } catch (error) {
     res.status(500).json({ error: 'Error restarting session', details: error.response?.data || error.message });
