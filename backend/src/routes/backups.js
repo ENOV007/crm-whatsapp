@@ -281,7 +281,7 @@ router.post('/trigger-auto', async (req, res) => {
       const codeArchive = path.join(tmpDir, `crm_code_${timestamp}.tar.gz`);
 
       try {
-        const repoRoot = path.join(__dirname, '../../..');
+        const repoRoot = fs.existsSync('/app/src') ? '/app' : path.join(__dirname, '../../..');
         const hasGit = fs.existsSync(path.join(repoRoot, '.git'));
         console.log(`[backup] repoRoot: ${repoRoot}, hasGit: ${hasGit}`);
         if (hasGit) {
