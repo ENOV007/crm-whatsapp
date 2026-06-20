@@ -95,15 +95,17 @@ router.post('/', auth, async (req, res) => {
 
     if (isPastoraCreator) {
       sendPushToGroup(groupId, {
-        title: `Nuevo ticket: ${title}`,
-        body: `Aprobado por ${req.user.name} en ${group.name}`,
-        url: `/tickets/${ticket.id}`
+        title: `📋 Nuevo ticket: ${title}`,
+        body: `✅ Aprobado por ${req.user.name} en ${group.name}`,
+        url: `/tickets/${ticket.id}`,
+        icon: '/icon-192.png'
       }).catch(err => console.error('Push notification failed:', err.message));
     } else {
       sendPushToGroup(groupId, {
-        title: `Nueva sugerencia: ${title}`,
-        body: `En ${group.name} - esperando revisión`,
-        url: `/tickets/${ticket.id}`
+        title: `💡 Nueva sugerencia: ${title}`,
+        body: `⏳ En ${group.name} — esperando revisión de la pastora`,
+        url: `/tickets/${ticket.id}`,
+        icon: '/icon-192.png'
       }, req.user.id).catch(err => console.error('Push notification failed:', err.message));
     }
 
@@ -376,10 +378,18 @@ router.patch('/:id', auth, async (req, res) => {
     }
 
     if (status && statusMessages[status]) {
+      const statusEmojis = {
+        APROBADO: '✅',
+        RECHAZADO: '❌',
+        EN_PROGRESO: '🚀',
+        COMPLETADO: '🎉'
+      };
+      const emoji = statusEmojis[status] || '📌';
       const pushPayload = {
-        title: `Ticket ${statusMessages[status]}`,
+        title: `${emoji} Ticket ${statusMessages[status]}`,
         body: `"${ticket.title}" ha cambiado a ${statusMessages[status]}`,
-        url: `/tickets/${ticket.id}`
+        url: `/tickets/${ticket.id}`,
+        icon: '/icon-192.png'
       };
       for (const userId of notifyUserIds) {
         sendPushToUser(userId, pushPayload).catch(() => {});
@@ -443,9 +453,16 @@ router.patch('/:id/move', auth, async (req, res) => {
         data: {
           userId: assignedUserId,
           ticketId: id,
-          message: `Te asignaron el ticket "${ticket.title}" en el grupo ${targetGroup.name}`
+          message: `📦 Te asignaron el ticket "${ticket.title}" en el grupo ${targetGroup.name}`
         }
       });
+
+      sendPushToUser(assignedUserId, {
+        title: `📦 Ticket asignado`,
+        body: `"${ticket.title}" en el grupo ${targetGroup.name}`,
+        url: `/tickets/${id}`,
+        icon: '/icon-192.png'
+      }).catch(() => {});
     }
 
     const creator = await prisma.user.findUnique({
@@ -457,9 +474,16 @@ router.patch('/:id/move', auth, async (req, res) => {
         data: {
           userId: creator.id,
           ticketId: id,
-          message: `Tu ticket "${ticket.title}" fue movido al grupo ${targetGroup.name}`
+          message: `🔀 Tu ticket "${ticket.title}" fue movido al grupo ${targetGroup.name}`
         }
       });
+
+      sendPushToUser(creator.id, {
+        title: `🔀 Ticket movido`,
+        body: `"${ticket.title}" → ${targetGroup.name}`,
+        url: `/tickets/${id}`,
+        icon: '/icon-192.png'
+      }).catch(() => {});
     }
 
     res.json(updated);
@@ -554,9 +578,16 @@ router.post('/:ticketId/comments/:commentId/request-review', auth, async (req, r
         data: {
           userId: leader.user.id,
           ticketId,
-          message: `${req.user.name} pide revisión de un comentario en un ticket`
+          message: `🔍 ${req.user.name} pide revisión de un comentario en un ticket`
         }
       });
+
+      sendPushToUser(leader.user.id, {
+        title: `🔍 Revisión solicitada`,
+        body: `${req.user.name} pide revisión de un comentario`,
+        url: `/tickets/${ticketId}`,
+        icon: '/icon-192.png'
+      }).catch(() => {});
     }
 
     res.json(updatedComment);
@@ -638,18 +669,32 @@ router.patch('/:ticketId/comments/:commentId/review', auth, async (req, res) => 
           data: {
             userId: p.id,
             ticketId,
-            message: `${req.user.name} envió a revisión un comentario de "${comment.ticket.title}"`
+            message: `📨 ${req.user.name} envió a revisión un comentario de "${comment.ticket.title}"`
           }
         });
+        sendPushToUser(p.id, {
+          title: `📨 Comentario enviado a revisión`,
+          body: `${req.user.name} en "${comment.ticket.title}"`,
+          url: `/tickets/${ticketId}`,
+          icon: '/icon-192.png'
+        }).catch(() => {});
       }
     } else {
+      const emoji = action === 'approve' ? '✅' : '❌';
+      const text = action === 'approve' ? 'aprobado' : 'rechazado';
       await prisma.notification.create({
         data: {
           userId: comment.userId,
           ticketId,
-          message: `Tu comentario fue ${action === 'approve' ? 'aprobado' : 'rechazado'} por ${req.user.name}`
+          message: `${emoji} Tu comentario fue ${text} por ${req.user.name}`
         }
       });
+      sendPushToUser(comment.userId, {
+        title: `${emoji} Comentario ${text}`,
+        body: `Por ${req.user.name} en "${comment.ticket.title}"`,
+        url: `/tickets/${ticketId}`,
+        icon: '/icon-192.png'
+      }).catch(() => {});
     }
 
     res.json(updatedComment);
