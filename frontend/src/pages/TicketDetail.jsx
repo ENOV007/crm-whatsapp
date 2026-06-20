@@ -452,9 +452,11 @@ function TicketDetail({ user }) {
               <div className="flex justify-between">
                 <dt className="text-gray-500">Sugerencia de:</dt>
                 <dd className="font-medium">
-                  {(user.role === 'PASTORA' || user.role === 'ADMIN' || isLeader || ticket.createdById === user.id)
+                  {(user.role === 'PASTORA' || user.role === 'ADMIN' || ticket.createdById === user.id)
                     ? (ticket.creator?.name || 'Miembro activo')
-                    : 'Miembro Activo'}
+                    : (isLeader && ticket.status === 'PENDIENTE_REVISION')
+                      ? (ticket.creator?.name || 'Miembro activo')
+                      : 'Miembro Activo'}
                 </dd>
               </div>
               <div className="flex justify-between">
