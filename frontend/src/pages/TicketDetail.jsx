@@ -383,16 +383,6 @@ function TicketDetail({ user }) {
 
         {/* Sidebar */}
         <div>
-          {/* Move Ticket (Pastora + Admin) */}
-          {(user.role === 'PASTORA' || user.role === 'ADMIN') && !ticket.group?.isPersonal && (
-            <MoveTicketModal
-              ticket={ticket}
-              user={user}
-              allGroups={allGroups}
-              onMove={fetchTicket}
-            />
-          )}
-
           {/* Status Actions (Pastora + Admin) */}
           {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
             <div className="card mb-6">
@@ -788,105 +778,6 @@ function TicketDetail({ user }) {
               </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MoveTicketModal({ ticket, user, allGroups, onMove }) {
-  const [show, setShow] = useState(false);
-  const [targetGroupId, setTargetGroupId] = useState('');
-  const [targetVisibility, setTargetVisibility] = useState('PRIVATE');
-  const [assignedUserId, setAssignedUserId] = useState('');
-  const [targetMembers, setTargetMembers] = useState([]);
-  const [moving, setMoving] = useState(false);
-
-  const handleGroupChange = async (groupId) => {
-    setTargetGroupId(groupId);
-    setAssignedUserId('');
-    if (groupId) {
-      try {
-        const res = await groupsAPI.getById(groupId);
-        setTargetMembers(res.data.members || []);
-      } catch (e) {
-        setTargetMembers([]);
-      }
-    }
-  };
-
-  const handleMove = async () => {
-    if (!targetGroupId) return;
-    setMoving(true);
-    try {
-      await ticketsAPI.move(ticket.id, {
-        groupId: targetGroupId,
-        visibility: targetVisibility,
-        assignedUserId: assignedUserId || undefined
-      });
-      setShow(false);
-      onMove();
-    } catch (error) {
-      alert(error.response?.data?.error || 'Error al mover ticket');
-    } finally {
-      setMoving(false);
-    }
-  };
-
-  const availableGroups = allGroups.filter(g => g.id !== ticket.groupId && !g.isPersonal);
-
-  return (
-    <div className="card mb-6">
-      <button
-        onClick={() => setShow(!show)}
-        className="w-full text-left p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-sm font-medium text-blue-800"
-      >
-        📦 Mover a otro grupo
-      </button>
-      {show && (
-        <div className="mt-3 space-y-3">
-          <select
-            value={targetGroupId}
-            onChange={(e) => handleGroupChange(e.target.value)}
-            className="input-field text-sm"
-          >
-            <option value="">Seleccionar grupo...</option>
-            {availableGroups.map(g => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </select>
-          {targetGroupId && (
-            <>
-              <select
-                value={targetVisibility}
-                onChange={(e) => setTargetVisibility(e.target.value)}
-                className="input-field text-sm"
-              >
-                <option value="INICIAL">Inicial (solo tú y pastora)</option>
-                <option value="PRIVATE">Privado (grupo)</option>
-                <option value="PUBLIC">Público (toda la iglesia)</option>
-              </select>
-              {targetMembers.length > 0 && (
-                <select
-                  value={assignedUserId}
-                  onChange={(e) => setAssignedUserId(e.target.value)}
-                  className="input-field text-sm"
-                >
-                  <option value="">Sin asignar</option>
-                  {targetMembers.map(m => (
-                    <option key={m.user.id} value={m.user.id}>{m.user.name}</option>
-                  ))}
-                </select>
-              )}
-              <button
-                onClick={handleMove}
-                disabled={moving}
-                className="btn-primary w-full text-sm"
-              >
-                {moving ? 'Moviendo...' : 'Mover Ticket'}
-              </button>
-            </>
-          )}
         </div>
       )}
     </div>
