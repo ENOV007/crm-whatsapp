@@ -82,6 +82,25 @@ async function main() {
   }
   console.log('✅ Group assignments done');
 
+  const personalUsers = [admin, pastora];
+  for (const u of personalUsers) {
+    const existing = await prisma.userGroup.findFirst({
+      where: { userId: u.id, group: { isPersonal: true } }
+    });
+    if (!existing) {
+      await prisma.group.create({
+        data: {
+          name: `Personal - ${u.name}`,
+          description: 'Grupo personal - solo visible para ti',
+          isPersonal: true,
+          isPrivate: true,
+          members: { create: { userId: u.id } }
+        }
+      });
+    }
+  }
+  console.log('✅ Personal groups created');
+
   console.log('\n🎉 Seed completed!');
   console.log('\n📧 Login credentials:');
   console.log('Admin:    admin@crm.com / admin123');

@@ -23,6 +23,9 @@ fi
 echo "Ejecutando migraciones de Prisma..."
 npx prisma migrate deploy --schema=src/prisma/schema.prisma
 
+echo "Creando grupos personales para Pastora/Admin..."
+node src/prisma/create-personal-groups.js 2>/dev/null || echo "Saltando creación de grupos personales."
+
 echo "Verificando si hay datos iniciales..."
 USER_COUNT=$(echo "SELECT COUNT(*) FROM \"User\"" | npx prisma db execute --schema=src/prisma/schema.prisma --stdin 2>/dev/null | grep -oE '[0-9]+' | head -1)
 if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
