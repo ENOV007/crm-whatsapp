@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { adminAPI, authAPI, ticketsAPI, backupAPI, whatsappAPI } from '../services/api';
+import { adminAPI, authAPI, ticketsAPI, backupAPI, whatsappAPI, pushAPI } from '../services/api';
+import { subscribeToPush, unsubscribeFromPush } from '../services/pushManager';
 
 function AdminPanel({ user }) {
   const [stats, setStats] = useState(null);
@@ -32,6 +33,9 @@ function AdminPanel({ user }) {
   const [whatsappTestMsg, setWhatsappTestMsg] = useState('');
   const [whatsappTestSending, setWhatsappTestSending] = useState(false);
   const [linkingGroup, setLinkingGroup] = useState(null);
+  const [pushStatus, setPushStatus] = useState('checking');
+  const [pushSending, setPushSending] = useState(false);
+  const [pushResult, setPushResult] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -48,6 +52,67 @@ function AdminPanel({ user }) {
       fetchWhatsAppData();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'push') {
+      checkPushStatus();
+    }
+  }, [activeTab]);
+
+  const checkPushStatus = async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setPushStatus('unsupported');
+        return;
+      }
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        setPushStatus('not_registered');
+        return;
+      }
+      const sub = await reg.pushManager.getSubscription();
+      setPushStatus(sub ? 'subscribed' : 'not_subscribed');
+    } catch (e) {
+      setPushStatus('error');
+    }
+  };
+
+  const handleSubscribePush = async () => {
+    setPushSending(true);
+    try {
+      await subscribeToPush();
+      await checkPushStatus();
+    } catch (e) {
+      console.error('Push subscribe error:', e);
+    } finally {
+      setPushSending(false);
+    }
+  };
+
+  const handleUnsubscribePush = async () => {
+    setPushSending(true);
+    try {
+      await unsubscribeFromPush();
+      await checkPushStatus();
+    } catch (e) {
+      console.error('Push unsubscribe error:', e);
+    } finally {
+      setPushSending(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    setPushSending(true);
+    setPushResult(null);
+    try {
+      const res = await pushAPI.sendTest();
+      setPushResult({ success: true, message: 'Push de prueba enviado!' });
+    } catch (e) {
+      setPushResult({ success: false, message: e.response?.data?.error || 'Error al enviar' });
+    } finally {
+      setPushSending(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -467,6 +532,7 @@ function AdminPanel({ user }) {
           { id: 'whatsapp', label: 'WhatsApp' },
           { id: 'tickets', label: 'Gestión de Tickets' },
           { id: 'backups', label: 'Backups' },
+          { id: 'push', label: 'Notificaciones Push' },
           { id: 'security', label: 'Seguridad' },
           { id: 'system', label: 'Sistema' }
         ].map(tab => (
@@ -1332,6 +1398,103 @@ function AdminPanel({ user }) {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Push Notifications Tab */}
+      {activeTab === 'push' && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Notificaciones Push</h2>
+          <p className="text-gray-500 mb-6">Gestiona las notificaciones push del navegador para dispositivos móviles.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Estado de suscripción */}
+            <div className="card">
+              <h3 className="font-semibold mb-4">Estado de Suscripción</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Navegador soporta Push</span>
+                  <span className={`font-medium ${pushStatus === 'unsupported' ? 'text-red-600' : 'text-green-600'}`}>
+                    {pushStatus === 'unsupported' ? '✗ No soportado' : '✓ Soportado'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Service Worker registrado</span>
+                  <span className={`font-medium ${['not_registered', 'unsupported', 'error'].includes(pushStatus) ? 'text-red-600' : 'text-green-600'}`}>
+                    {['not_registered', 'unsupported', 'error'].includes(pushStatus) ? '✗ No' : '✓ Sí'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Suscripción push activa</span>
+                  <span className={`font-medium ${pushStatus === 'subscribed' ? 'text-green-600' : 'text-yellow-600'}`}>
+                    {pushStatus === 'subscribed' ? '✓ Activa' : pushStatus === 'checking' ? '...' : '✗ Inactiva'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {pushStatus !== 'subscribed' ? (
+                  <button
+                    onClick={handleSubscribePush}
+                    disabled={pushSending || pushStatus === 'unsupported'}
+                    className="btn-primary w-full"
+                  >
+                    {pushSending ? 'Suscribiendo...' : 'Activar Notificaciones Push'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleUnsubscribePush}
+                    disabled={pushSending}
+                    className="w-full px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+                  >
+                    {pushSending ? 'Desactivando...' : 'Desactivar Notificaciones'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Test push */}
+            <div className="card">
+              <h3 className="font-semibold mb-4">Enviar Push de Prueba</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Envía una notificación de prueba a todos los dispositivos suscritos del admin.
+              </p>
+
+              <button
+                onClick={handleTestPush}
+                disabled={pushSending || pushStatus !== 'subscribed'}
+                className="btn-primary w-full mb-3"
+              >
+                {pushSending ? 'Enviando...' : '🔔 Enviar Notificación de Prueba'}
+              </button>
+
+              {pushResult && (
+                <div className={`p-3 rounded-lg text-sm ${pushResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {pushResult.message}
+                </div>
+              )}
+
+              {pushStatus !== 'subscribed' && (
+                <p className="text-xs text-yellow-600 mt-2">
+                  Necesitas suscribirte primero para poder enviar notificaciones de prueba.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="card mt-6">
+            <h3 className="font-semibold mb-3">Cómo funciona</h3>
+            <div className="text-sm text-gray-600 space-y-2">
+              <p>1. El usuario acepta recibir notificaciones al hacer login</p>
+              <p>2. El navegador guarda una suscripción push en el servidor</p>
+              <p>3. Cuando se crea un ticket o cambia su estado, se envía una notificación push</p>
+              <p>4. La notificación aparece en la barra de notificaciones del teléfono</p>
+              <p className="text-xs text-gray-400 mt-3">
+                Nota: Las notificaciones push requieren HTTPS y que el usuario haya dado permiso.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
