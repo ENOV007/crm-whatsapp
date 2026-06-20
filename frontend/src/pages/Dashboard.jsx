@@ -4,6 +4,7 @@ import { groupsAPI } from '../services/api';
 
 function Dashboard({ user }) {
   const [groups, setGroups] = useState([]);
+  const [personalGroup, setPersonalGroup] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -12,8 +13,12 @@ function Dashboard({ user }) {
 
   const fetchGroups = async () => {
     try {
-      const res = await groupsAPI.getAll();
-      setGroups(res.data);
+      const [groupsRes, personalRes] = await Promise.all([
+        groupsAPI.getAll(),
+        (user?.role === 'PASTORA' || user?.role === 'ADMIN') ? groupsAPI.getMyPersonal() : Promise.resolve({ data: null })
+      ]);
+      setGroups(groupsRes.data);
+      setPersonalGroup(personalRes.data);
     } catch (error) {
       console.error('Error fetching groups:', error);
     } finally {
@@ -31,10 +36,38 @@ function Dashboard({ user }) {
 
   return (
     <div>
+      {/* Mi Espacio Personal */}
+      {personalGroup && (
+        <div className="mb-8">
+          <div className="card border-2 border-purple-200 bg-purple-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-purple-800">🏠 Mi Espacio Personal</h2>
+                <p className="text-purple-600 text-sm mt-1">Tus gestiones privadas — {personalGroup._count?.tickets || 0} tickets</p>
+              </div>
+              <div className="flex gap-2">
+                <Link
+                  to={`/groups/${personalGroup.id}`}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-medium"
+                >
+                  Ver tickets
+                </Link>
+                <Link
+                  to={`/create-ticket?groupId=${personalGroup.id}`}
+                  className="bg-white text-purple-600 border border-purple-300 px-4 py-2 rounded-lg hover:bg-purple-100 text-sm font-medium"
+                >
+                  + Crear
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mi Grupo */}
       {myGroups.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Mi Grupo</h2>
+          <h2 className="text-xl font-bold mb-4">Mis Grupos</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {myGroups.map(group => (
               <Link
@@ -94,7 +127,7 @@ function Dashboard({ user }) {
       )}
 
       {/* Si no tiene grupo */}
-      {myGroups.length === 0 && (
+      {myGroups.length === 0 && !personalGroup && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
           <p className="text-yellow-800">
             <strong>No perteneces a ningún grupo aún.</strong> Contacta al administrador para ser asignado a un grupo.
