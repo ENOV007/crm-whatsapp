@@ -41,7 +41,11 @@ echo "Configurando rclone..."
 if [ -n "$RCLONE_CONFIG" ]; then
   mkdir -p ~/.config/rclone
   echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
-  echo "rclone configurado."
+  echo "rclone configurado desde RCLONE_CONFIG."
+elif [ -n "$RCLONE_CONFIG_BASE64" ]; then
+  mkdir -p ~/.config/rclone
+  echo "$RCLONE_CONFIG_BASE64" | base64 -d > ~/.config/rclone/rclone.conf
+  echo "rclone configurado desde RCLONE_CONFIG_BASE64."
 else
   echo "Sin RCLONE_CONFIG, backups a Drive deshabilitados."
 fi
