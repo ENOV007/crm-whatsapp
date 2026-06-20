@@ -284,13 +284,15 @@ router.post('/trigger-auto', async (req, res) => {
         const appDir = fs.existsSync('/app/src') ? '/app' : path.join(__dirname, '../../..');
         const hasGit = fs.existsSync(path.join(appDir, '.git'));
         console.log(`[backup] appDir: ${appDir}, hasGit: ${hasGit}`);
-        const dirs = ['backend/src', 'frontend/src', 'scripts'].filter(d => fs.existsSync(path.join(appDir, d)));
         if (hasGit) {
           await execAsync(`git archive HEAD | gzip > "${codeArchive}"`, { cwd: appDir });
-        } else if (dirs.length > 0) {
-          await execAsync(`tar -czf "${codeArchive}" -C "${appDir}" ${dirs.join(' ')}`);
         } else {
-          await execAsync(`tar -czf "${codeArchive}" -C "${appDir}" .`);
+          const items = fs.readdirSync(appDir).filter(f => !f.startsWith('.') && f !== 'node_modules' && f !== 'dist');
+          if (items.length > 0) {
+            await execAsync(`tar -czf "${codeArchive}" -C "${appDir}" ${items.join(' ')}`);
+          } else {
+            throw new Error('No hay archivos para archivar');
+          }
         }
         console.log(`[backup] Uploading ${codeArchive} to Drive...`);
         const { stdout, stderr } = await execAsync(`rclone copy "${codeArchive}" "gdrive:CRM-Backups/weekly/" --checksum -v`, { timeout: 120000 });
