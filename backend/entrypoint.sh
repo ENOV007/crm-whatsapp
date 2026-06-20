@@ -28,14 +28,10 @@ node src/prisma/create-personal-groups.js 2>/dev/null || echo "Saltando creació
 
 echo "Verificando si hay datos iniciales..."
 USER_COUNT=$(echo "SELECT COUNT(*) FROM \"User\"" | npx prisma db execute --schema=src/prisma/schema.prisma --stdin 2>/dev/null | grep -oE '[0-9]+' | head -1)
+echo "User count: $USER_COUNT"
 if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
-  ADMIN_COUNT=$(echo "SELECT COUNT(*) FROM \"User\" WHERE role = 'ADMIN'" | npx prisma db execute --schema=src/prisma/schema.prisma --stdin 2>/dev/null | grep -oE '[0-9]+' | head -1)
-  if [ "$ADMIN_COUNT" = "0" ] || [ -z "$ADMIN_COUNT" ]; then
-    echo "Sin admin, ejecutando seed..."
-    node src/prisma/seed.js
-  else
-    echo "Admin existe ($ADMIN_COUNT), saltando seed."
-  fi
+  echo "Sin usuarios, ejecutando seed..."
+  node src/prisma/seed.js
 else
   echo "Base de datos tiene $USER_COUNT usuarios, saltando seed."
 fi
