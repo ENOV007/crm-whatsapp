@@ -16,7 +16,7 @@ git archive HEAD \
 FILE_SIZE=$(du -h "$BACKUP_DIR/$BACKUP_NAME.tar.gz" | cut -f1)
 echo "Code backup: $FILE_SIZE"
 
-rclone copy "$BACKUP_DIR/$BACKUP_NAME.tar.gz" "gdrive:CRM-Backups/daily/" --checksum
+rclone copy "$BACKUP_DIR/$BACKUP_NAME.tar.gz" "gdrive:CRM-Backups/weekly/" --checksum
 
 rm -f "$BACKUP_DIR/$BACKUP_NAME"*
 

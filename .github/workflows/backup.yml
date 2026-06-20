@@ -3,23 +3,26 @@ name: CRM Backup
 on:
   schedule:
     - cron: '0 3 * * *'
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       backup_type:
         description: 'Tipo de backup'
         required: true
-        default: 'daily'
+        default: 'all'
         type: choice
         options:
-          - daily
-          - weekly
+          - all
+          - db
+          - code
 
 jobs:
-  backup:
-    name: CRM Backup (DB + Code)
+  backup-db:
+    name: Backup DB
+    if: github.event.inputs.backup_type != 'code'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -41,24 +44,72 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_CONFIG_B64" | base64 -d > ~/.config/rclone/rclone.conf
 
-      - name: Run full backup
+      - name: Run DB backup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           chmod +x scripts/*.sh
-          bash scripts/run-backup.sh
+          bash scripts/run-backup-db.sh
 
-      - name: Backup summary
+      - name: Backup DB summary
         if: success()
         run: |
-          echo "## CRM Backup Complete ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- **Type**: daily" >> $GITHUB_STEP_SUMMARY
+          echo "## DB Backup Complete ✅" >> $GITHUB_STEP_SUMMARY
           echo "- **Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Destination**: gdrive:CRM-Backups/daily/" >> $GITHUB_STEP_SUMMARY
 
-      - name: Notify on failure
-        if: failure()
+  backup-code:
+    name: Backup Code
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.backup_type == 'all' || github.event.inputs.backup_type == 'code')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install rclone
+        env:
+          RCLONE_CONFIG_B64: ${{ secrets.RCLONE_CONFIG_BASE64 }}
         run: |
-          echo "## CRM Backup FAILED ❌" >> $GITHUB_STEP_SUMMARY
+          sudo apt-get install -y rclone
+          mkdir -p ~/.config/rclone
+          echo "$RCLONE_CONFIG_B64" | base64 -d > ~/.config/rclone/rclone.conf
+
+      - name: Run Code backup
+        run: |
+          chmod +x scripts/*.sh
+          bash scripts/run-backup-code.sh
+
+      - name: Backup Code summary
+        if: success()
+        run: |
+          echo "## Code Backup Complete ✅" >> $GITHUB_STEP_SUMMARY
           echo "- **Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Check logs for details**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Destination**: gdrive:CRM-Backups/weekly/" >> $GITHUB_STEP_SUMMARY
+
+  cleanup:
+    name: Cleanup old backups
+    needs: [backup-db, backup-code]
+    if: always() && (needs.backup-db.result == 'success' || needs.backup-code.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install rclone
+        env:
+          RCLONE_CONFIG_B64: ${{ secrets.RCLONE_CONFIG_BASE64 }}
+        run: |
+          sudo apt-get install -y rclone
+          mkdir -p ~/.config/rclone
+          echo "$RCLONE_CONFIG_B64" | base64 -d > ~/.config/rclone/rclone.conf
+
+      - name: Cleanup old backups
+        run: |
+          rclone delete gdrive:CRM-Backups/daily/ --max-age 7d --min-age 1d 2>&1 || true
+          rclone delete gdrive:CRM-Backups/weekly/ --max-age 90d --min-age 1d 2>&1 || true
+          echo "## Cleanup Complete ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- **Daily retention**: 7 days" >> $GITHUB_STEP_SUMMARY
+          echo "- **Weekly retention**: 90 days" >> $GITHUB_STEP_SUMMARY
