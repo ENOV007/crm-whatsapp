@@ -95,8 +95,10 @@ export const backupAPI = {
   getLogs: (params) => api.get('/backups/logs', { params }),
   getStats: () => api.get('/backups/stats'),
   getDriveFiles: () => api.get('/backups/drive-files'),
+  getAvailable: () => api.get('/backups/available'),
   triggerAuto: (type) => api.post('/backups/trigger-auto', { type }),
-  download: () => api.post('/backups/download', {}, { responseType: 'blob' })
+  download: () => api.post('/backups/download', {}, { responseType: 'blob' }),
+  restore: (fileName) => api.post('/backups/restore', { fileName })
 };
 
 // WhatsApp API

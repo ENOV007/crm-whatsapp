@@ -21,6 +21,9 @@ function AdminPanel({ user }) {
   const [backupFiles, setBackupFiles] = useState([]);
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupTriggering, setBackupTriggering] = useState(false);
+  const [availableBackups, setAvailableBackups] = useState([]);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreConfirm, setRestoreConfirm] = useState(null);
   const [whatsappStatus, setWhatsappStatus] = useState(null);
   const [whatsappQR, setWhatsappQR] = useState(null);
   const [whatsappGroups, setWhatsappGroups] = useState([]);
@@ -77,14 +80,16 @@ function AdminPanel({ user }) {
   const fetchBackupData = async () => {
     setBackupLoading(true);
     try {
-      const [statsRes, logsRes, filesRes] = await Promise.all([
+      const [statsRes, logsRes, filesRes, availableRes] = await Promise.all([
         backupAPI.getStats(),
         backupAPI.getLogs({ limit: 15 }),
-        backupAPI.getDriveFiles()
+        backupAPI.getDriveFiles(),
+        backupAPI.getAvailable()
       ]);
       setBackupStats(statsRes.data);
       setBackupLogs(logsRes.data);
       setBackupFiles(filesRes.data);
+      setAvailableBackups(availableRes.data);
     } catch (error) {
       console.error('Error fetching backup data:', error);
     } finally {
@@ -124,6 +129,21 @@ function AdminPanel({ user }) {
     } catch (error) {
       console.error('Error triggering auto backup:', error);
       alert('Error al iniciar backup automático');
+    }
+  };
+
+  const handleRestore = async (fileName) => {
+    setRestoreConfirm(null);
+    setRestoring(true);
+    try {
+      const res = await backupAPI.restore(fileName);
+      alert(`Restore completado: ${res.data.executed} sentencias ejecutadas en ${res.data.duration}s`);
+      fetchBackupData();
+    } catch (error) {
+      console.error('Error restoring backup:', error);
+      alert('Error al restaurar backup: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -1164,6 +1184,58 @@ function AdminPanel({ user }) {
                     <p className="text-xs text-gray-500">Borrar diarios &gt;7d y semanales &gt;28d</p>
                   </button>
                 </div>
+              </div>
+
+              {/* Restore from Drive */}
+              <div className="card mb-6">
+                <h3 className="font-semibold mb-4">Restaurar Backup desde Drive</h3>
+                {availableBackups.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">No hay backups disponibles en Drive.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {availableBackups.map((backup, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-3 h-3 rounded-full ${backup.isDump ? 'bg-blue-500' : 'bg-green-500'}`}></span>
+                          <div>
+                            <p className="font-mono text-sm">{backup.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {backup.date || 'Fecha desconocida'} · {(backup.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {restoreConfirm === idx ? (
+                            <>
+                              <span className="text-xs text-red-600 font-medium">¿Restaurar?</span>
+                              <button
+                                onClick={() => handleRestore(backup.name)}
+                                disabled={restoring}
+                                className="bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {restoring ? 'Restaurando...' : 'Sí, restaurar'}
+                              </button>
+                              <button
+                                onClick={() => setRestoreConfirm(null)}
+                                disabled={restoring}
+                                className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-300"
+                              >
+                                Cancelar
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => setRestoreConfirm(idx)}
+                              className="bg-orange-500 text-white px-3 py-1.5 rounded text-sm hover:bg-orange-600"
+                            >
+                              Restaurar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

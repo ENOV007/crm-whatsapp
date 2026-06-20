@@ -320,4 +320,109 @@ router.post('/trigger-auto', async (req, res) => {
   }
 });
 
+router.get('/available', async (req, res) => {
+  try {
+    const result = await new Promise((resolve) => {
+      exec('rclone ls gdrive:CRM-Backups/daily/ --include "*.dump.gz" --include "*.sql.gz"', { timeout: 15000 }, (err, stdout) => {
+        resolve(stdout || '');
+      });
+    });
+    if (!result.trim()) return res.json([]);
+    const backups = result.trim().split('\n').filter(Boolean).map(line => {
+      const parts = line.trim().split(/\s+/);
+      const size = parseInt(parts[0]);
+      const filePath = parts.slice(1).join(' ');
+      const fileName = filePath.split('/').pop();
+      const dateMatch = fileName.match(/(\d{8})_(\d{6})/);
+      let date = null;
+      if (dateMatch) {
+        const d = dateMatch[1];
+        const t = dateMatch[2];
+        date = `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)} ${t.slice(0,2)}:${t.slice(2,4)}:${t.slice(4,6)}`;
+      }
+      return { size, path: filePath, name: fileName, date, isDump: fileName.includes('.dump') };
+    });
+    backups.sort((a, b) => b.name.localeCompare(a.name));
+    res.json(backups);
+  } catch (error) {
+    console.error('Error listing available backups:', error.message);
+    res.json([]);
+  }
+});
+
+router.post('/restore', async (req, res) => {
+  const { fileName } = req.body;
+  if (!fileName) return res.status(400).json({ error: 'Se requiere fileName del backup a restaurar.' });
+
+  const tmpDir = path.join(BACKUP_DIR, `restore_${Date.now()}`);
+  const logEntry = await prisma.backupLog.create({
+    data: {
+      type: 'restore',
+      status: 'running',
+      triggeredBy: req.user.name || req.user.email,
+      message: `Restaurando ${fileName}...`
+    }
+  });
+
+  const startTime = Date.now();
+
+  try {
+    ensureDir(tmpDir);
+    const localFile = path.join(tmpDir, fileName);
+    await execAsync(`rclone copy "gdrive:CRM-Backups/daily/${fileName}" "${tmpDir}/"`);
+    if (!fs.existsSync(localFile)) {
+      throw new Error('Archivo no encontrado después de descargar');
+    }
+
+    let sqlFile = localFile;
+    if (fileName.endsWith('.gz')) {
+      await execAsync(`gunzip "${localFile}"`);
+      sqlFile = localFile.replace('.gz', '');
+    }
+
+    const conn = new PgClient({ connectionString: process.env.DATABASE_URL });
+    await conn.connect();
+    try {
+      const sql = fs.readFileSync(sqlFile, 'utf8');
+      const statements = sql.split(';').filter(s => s.trim() && !s.trim().startsWith('--'));
+      let executed = 0;
+      for (const stmt of statements) {
+        const trimmed = stmt.trim();
+        if (!trimmed) continue;
+        try {
+          await conn.query(trimmed);
+          executed++;
+        } catch (e) {
+          if (!e.message.includes('does not exist') && !e.message.includes('already exists')) {
+            console.error('Restore statement error:', e.message);
+          }
+        }
+      }
+      const duration = Math.round((Date.now() - startTime) / 1000);
+      await prisma.backupLog.update({
+        where: { id: logEntry.id },
+        data: {
+          status: 'success',
+          fileName,
+          fileSize: `${(fs.statSync(localFile).size / 1024 / 1024).toFixed(2)} MB`,
+          duration,
+          message: `Restore completado: ${executed} sentencias ejecutadas`
+        }
+      });
+      res.json({ message: 'Base de datos restaurada exitosamente.', executed, duration });
+    } finally {
+      await conn.end();
+    }
+  } catch (error) {
+    console.error('Restore error:', error);
+    await prisma.backupLog.update({
+      where: { id: logEntry.id },
+      data: { status: 'error', message: error.message || 'Error durante restore' }
+    });
+    res.status(500).json({ error: 'Error al restaurar backup.' });
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
+  }
+});
+
 module.exports = router;
