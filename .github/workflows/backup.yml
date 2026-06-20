@@ -34,10 +34,12 @@ jobs:
           sudo ln -sf /usr/lib/postgresql/18/bin/pg_dumpall /usr/local/bin/pg_dumpall
 
       - name: Install rclone
+        env:
+          RCLONE_CONFIG_CONTENT: ${{ secrets.RCLONE_CONFIG }}
         run: |
           sudo apt-get install -y rclone
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          echo "$RCLONE_CONFIG_CONTENT" > ~/.config/rclone/rclone.conf
 
       - name: Run full backup
         env:
