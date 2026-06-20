@@ -36,6 +36,12 @@ function AdminPanel({ user }) {
   const [pushStatus, setPushStatus] = useState('checking');
   const [pushSending, setPushSending] = useState(false);
   const [pushResult, setPushResult] = useState(null);
+  const [pushSubscriptions, setPushSubscriptions] = useState([]);
+  const [pushTestUser, setPushTestUser] = useState('');
+  const [pushTestTitle, setPushTestTitle] = useState('');
+  const [pushTestMsg, setPushTestMsg] = useState('');
+  const [pushTestSending, setPushTestSending] = useState(false);
+  const [pushTestResult, setPushTestResult] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -56,6 +62,7 @@ function AdminPanel({ user }) {
   useEffect(() => {
     if (activeTab === 'push') {
       checkPushStatus();
+      fetchPushSubscriptions();
     }
   }, [activeTab]);
 
@@ -77,11 +84,21 @@ function AdminPanel({ user }) {
     }
   };
 
+  const fetchPushSubscriptions = async () => {
+    try {
+      const res = await pushAPI.getAllSubscriptions();
+      setPushSubscriptions(res.data);
+    } catch (e) {
+      console.error('Error fetching subscriptions:', e);
+    }
+  };
+
   const handleSubscribePush = async () => {
     setPushSending(true);
     try {
       await subscribeToPush();
       await checkPushStatus();
+      fetchPushSubscriptions();
     } catch (e) {
       console.error('Push subscribe error:', e);
     } finally {
@@ -94,6 +111,7 @@ function AdminPanel({ user }) {
     try {
       await unsubscribeFromPush();
       await checkPushStatus();
+      fetchPushSubscriptions();
     } catch (e) {
       console.error('Push unsubscribe error:', e);
     } finally {
@@ -101,16 +119,18 @@ function AdminPanel({ user }) {
     }
   };
 
-  const handleTestPush = async () => {
-    setPushSending(true);
-    setPushResult(null);
+  const handleSendTestPush = async () => {
+    if (!pushTestUser || !pushTestTitle || !pushTestMsg) return;
+    setPushTestSending(true);
+    setPushTestResult(null);
     try {
-      const res = await pushAPI.sendTest();
-      setPushResult({ success: true, message: 'Push de prueba enviado!' });
+      const user = users.find(u => u.id === pushTestUser);
+      const res = await pushAPI.sendTest(pushTestTitle, pushTestMsg);
+      setPushTestResult({ success: true, message: res.data.message });
     } catch (e) {
-      setPushResult({ success: false, message: e.response?.data?.error || 'Error al enviar' });
+      setPushTestResult({ success: false, message: e.response?.data?.error || 'Error al enviar' });
     } finally {
-      setPushSending(false);
+      setPushTestSending(false);
     }
   };
 
@@ -1407,93 +1427,113 @@ function AdminPanel({ user }) {
           <h2 className="text-xl font-semibold mb-4">Notificaciones Push</h2>
           <p className="text-gray-500 mb-6">Gestiona las notificaciones push del navegador para dispositivos móviles.</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Estado de suscripción */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Mi suscripción */}
             <div className="card">
-              <h3 className="font-semibold mb-4">Estado de Suscripción</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span>Navegador soporta Push</span>
-                  <span className={`font-medium ${pushStatus === 'unsupported' ? 'text-red-600' : 'text-green-600'}`}>
+              <h3 className="font-semibold mb-4">Mi Suscripción</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <span>Navegador Push</span>
+                  <span className={pushStatus === 'unsupported' ? 'text-red-600' : 'text-green-600'}>
                     {pushStatus === 'unsupported' ? '✗ No soportado' : '✓ Soportado'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span>Service Worker registrado</span>
-                  <span className={`font-medium ${['not_registered', 'unsupported', 'error'].includes(pushStatus) ? 'text-red-600' : 'text-green-600'}`}>
-                    {['not_registered', 'unsupported', 'error'].includes(pushStatus) ? '✗ No' : '✓ Sí'}
+                <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <span>Service Worker</span>
+                  <span className={['not_registered', 'unsupported', 'error'].includes(pushStatus) ? 'text-red-600' : 'text-green-600'}>
+                    {['not_registered', 'unsupported', 'error'].includes(pushStatus) ? '✗ No' : '✓ Activo'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span>Suscripción push activa</span>
-                  <span className={`font-medium ${pushStatus === 'subscribed' ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {pushStatus === 'subscribed' ? '✓ Activa' : pushStatus === 'checking' ? '...' : '✗ Inactiva'}
+                <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <span>Suscripción</span>
+                  <span className={pushStatus === 'subscribed' ? 'text-green-600' : 'text-yellow-600'}>
+                    {pushStatus === 'subscribed' ? '✓ Activa' : '✗ Inactiva'}
                   </span>
                 </div>
               </div>
-
-              <div className="mt-4 space-y-2">
+              <div className="mt-4">
                 {pushStatus !== 'subscribed' ? (
-                  <button
-                    onClick={handleSubscribePush}
-                    disabled={pushSending || pushStatus === 'unsupported'}
-                    className="btn-primary w-full"
-                  >
-                    {pushSending ? 'Suscribiendo...' : 'Activar Notificaciones Push'}
+                  <button onClick={handleSubscribePush} disabled={pushSending || pushStatus === 'unsupported'} className="btn-primary w-full">
+                    {pushSending ? 'Suscribiendo...' : 'Activar Push'}
                   </button>
                 ) : (
-                  <button
-                    onClick={handleUnsubscribePush}
-                    disabled={pushSending}
-                    className="w-full px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
-                  >
-                    {pushSending ? 'Desactivando...' : 'Desactivar Notificaciones'}
+                  <button onClick={handleUnsubscribePush} disabled={pushSending} className="w-full px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">
+                    {pushSending ? 'Desactivando...' : 'Desactivar Push'}
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Test push */}
+            {/* Enviar push a usuario */}
             <div className="card">
-              <h3 className="font-semibold mb-4">Enviar Push de Prueba</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Envía una notificación de prueba a todos los dispositivos suscritos del admin.
-              </p>
-
-              <button
-                onClick={handleTestPush}
-                disabled={pushSending || pushStatus !== 'subscribed'}
-                className="btn-primary w-full mb-3"
-              >
-                {pushSending ? 'Enviando...' : '🔔 Enviar Notificación de Prueba'}
-              </button>
-
-              {pushResult && (
-                <div className={`p-3 rounded-lg text-sm ${pushResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {pushResult.message}
+              <h3 className="font-semibold mb-4">Enviar Push Personalizado</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Enviar a:</label>
+                  <select value={pushTestUser} onChange={(e) => setPushTestUser(e.target.value)} className="input-field text-sm">
+                    <option value="">Seleccionar usuario...</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                    ))}
+                  </select>
                 </div>
-              )}
-
-              {pushStatus !== 'subscribed' && (
-                <p className="text-xs text-yellow-600 mt-2">
-                  Necesitas suscribirte primero para poder enviar notificaciones de prueba.
-                </p>
-              )}
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Título:</label>
+                  <input type="text" value={pushTestTitle} onChange={(e) => setPushTestTitle(e.target.value)} className="input-field text-sm" placeholder="Ej: Recordatorio" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Mensaje:</label>
+                  <textarea value={pushTestMsg} onChange={(e) => setPushTestMsg(e.target.value)} className="input-field text-sm" rows={2} placeholder="Ej: Tienes un ticket pendiente..." />
+                </div>
+                <button
+                  onClick={handleSendTestPush}
+                  disabled={pushTestSending || !pushTestUser || !pushTestTitle || !pushTestMsg}
+                  className="btn-primary w-full"
+                >
+                  {pushTestSending ? 'Enviando...' : '🔔 Enviar Push'}
+                </button>
+                {pushTestResult && (
+                  <div className={`p-2 rounded text-sm ${pushTestResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {pushTestResult.message}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Info */}
+          {/* Todas las suscripciones */}
           <div className="card mt-6">
-            <h3 className="font-semibold mb-3">Cómo funciona</h3>
-            <div className="text-sm text-gray-600 space-y-2">
-              <p>1. El usuario acepta recibir notificaciones al hacer login</p>
-              <p>2. El navegador guarda una suscripción push en el servidor</p>
-              <p>3. Cuando se crea un ticket o cambia su estado, se envía una notificación push</p>
-              <p>4. La notificación aparece en la barra de notificaciones del teléfono</p>
-              <p className="text-xs text-gray-400 mt-3">
-                Nota: Las notificaciones push requieren HTTPS y que el usuario haya dado permiso.
-              </p>
-            </div>
+            <h3 className="font-semibold mb-4">Dispositivos Suscritos ({pushSubscriptions.length})</h3>
+            {pushSubscriptions.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No hay dispositivos suscritos aún.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-3">Usuario</th>
+                      <th className="text-left py-2 px-3">Rol</th>
+                      <th className="text-left py-2 px-3">Dispositivo</th>
+                      <th className="text-left py-2 px-3">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pushSubscriptions.map(sub => (
+                      <tr key={sub.id} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-3">{sub.user.name}</td>
+                        <td className="py-2 px-3">
+                          <span className={`text-xs px-2 py-0.5 rounded ${sub.user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : sub.user.role === 'PASTORA' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {sub.user.role}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-xs text-gray-500 max-w-xs truncate">{sub.userAgent || 'Desconocido'}</td>
+                        <td className="py-2 px-3 text-xs text-gray-500">{new Date(sub.createdAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
