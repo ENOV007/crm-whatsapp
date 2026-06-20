@@ -10,6 +10,7 @@ const notificationRoutes = require('./routes/notifications');
 const whatsappRoutes = require('./routes/whatsapp');
 const adminRoutes = require('./routes/admin');
 const backupRoutes = require('./routes/backups');
+const pushRoutes = require('./routes/push');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -38,6 +39,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/backups', backupRoutes);
+app.use('/api/push', pushRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

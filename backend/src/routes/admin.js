@@ -125,6 +125,18 @@ router.post('/users', async (req, res) => {
       select: { id: true, name: true, email: true, role: true }
     });
 
+    if (userRole === 'PASTORA' || userRole === 'ADMIN') {
+      await prisma.group.create({
+        data: {
+          name: `Personal - ${user.name}`,
+          description: 'Grupo personal - solo visible para ti',
+          isPersonal: true,
+          isPrivate: true,
+          members: { create: { userId: user.id } }
+        }
+      });
+    }
+
     res.status(201).json(user);
   } catch (error) {
     console.error(error);
@@ -250,6 +262,11 @@ router.delete('/groups/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    const group = await prisma.group.findUnique({ where: { id }, select: { isPersonal: true } });
+    if (group?.isPersonal) {
+      return res.status(403).json({ error: 'No se pueden eliminar grupos personales.' });
+    }
+
     const ticketCount = await prisma.ticket.count({ where: { groupId: id } });
     if (ticketCount > 0) {
       return res.status(400).json({ error: `No se puede eliminar: el grupo tiene ${ticketCount} ticket(s) asociado(s).` });
@@ -294,6 +311,7 @@ router.patch('/groups/:id', async (req, res) => {
 router.get('/groups', async (req, res) => {
   try {
     const groups = await prisma.group.findMany({
+      where: { isPersonal: false },
       select: {
         id: true,
         name: true,

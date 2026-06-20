@@ -44,6 +44,7 @@ export const authAPI = {
 export const groupsAPI = {
   getAll: () => api.get('/groups/all'),
   getMyGroups: () => api.get('/groups'),
+  getMyPersonal: () => api.get('/groups/my-personal'),
   getById: (id) => api.get(`/groups/${id}`),
   create: (data) => api.post('/groups', data),
   addMember: (groupId, userId) => api.post(`/groups/${groupId}/members`, { userId }),
@@ -58,6 +59,7 @@ export const ticketsAPI = {
   getById: (id) => api.get(`/tickets/${id}`),
   create: (data) => api.post('/tickets', data),
   update: (id, data) => api.patch(`/tickets/${id}`, data),
+  move: (id, data) => api.patch(`/tickets/${id}/move`, data),
   hide: (id, hidden = true) => api.patch(`/tickets/${id}/hide`, { hidden }),
   delete: (id) => api.delete(`/tickets/${id}`),
   addComment: (ticketId, data) => api.post(`/tickets/${ticketId}/comments`, data),
@@ -111,6 +113,14 @@ export const whatsappAPI = {
   createGroup: (name, participants) => api.post('/whatsapp/create-group', { name, participants }),
   getGroups: () => api.get('/whatsapp/groups'),
   linkGroup: (crmGroupId, whatsappGroupId) => api.patch(`/admin/groups/${crmGroupId}`, { whatsappGroupId })
+};
+
+// Push API
+export const pushAPI = {
+  getVapidKey: () => api.get('/push/vapid-key'),
+  subscribe: (subscription) => api.post('/push/subscribe', { subscription }),
+  unsubscribe: (data) => api.post('/push/unsubscribe', data),
+  sendTest: () => api.post('/push/test')
 };
 
 export default api;

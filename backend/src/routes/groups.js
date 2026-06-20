@@ -10,6 +10,7 @@ router.get('/all', auth, async (req, res) => {
   try {
     const groups = await prisma.group.findMany({
       where: {
+        isPersonal: false,
         OR: [
           { isPrivate: false },
           { members: { some: { userId: req.user.id } } }
@@ -34,11 +35,11 @@ router.get('/all', auth, async (req, res) => {
   }
 });
 
-// Get user's groups
+// Get user's groups (excluding personal)
 router.get('/', auth, async (req, res) => {
   try {
     const groups = await prisma.userGroup.findMany({
-      where: { userId: req.user.id },
+      where: { userId: req.user.id, group: { isPersonal: false } },
       select: {
         group: {
           select: {
@@ -57,6 +58,31 @@ router.get('/', auth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener grupos.' });
+  }
+});
+
+// Get my personal group
+router.get('/my-personal', auth, async (req, res) => {
+  try {
+    const membership = await prisma.userGroup.findFirst({
+      where: {
+        userId: req.user.id,
+        group: { isPersonal: true }
+      },
+      include: {
+        group: {
+          include: {
+            _count: { select: { tickets: true } }
+          }
+        }
+      }
+    });
+
+    if (!membership) return res.json(null);
+    res.json(membership.group);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener grupo personal.' });
   }
 });
 
@@ -117,7 +143,12 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Grupo no encontrado.' });
     }
 
-    if (group.isPrivate) {
+    if (group.isPersonal) {
+      const isOwner = group.members.some(m => m.userId === req.user.id);
+      if (!isOwner) {
+        return res.status(404).json({ error: 'Grupo no encontrado.' });
+      }
+    } else if (group.isPrivate) {
       const isMember = group.members.some(m => m.userId === req.user.id);
       if (!isMember) {
         return res.status(404).json({ error: 'Grupo no encontrado.' });
@@ -136,6 +167,11 @@ router.post('/:id/members', auth, isPastora, async (req, res) => {
   try {
     const { id } = req.params;
     const { userId } = req.body;
+
+    const group = await prisma.group.findUnique({ where: { id }, select: { isPersonal: true } });
+    if (group?.isPersonal) {
+      return res.status(403).json({ error: 'No se pueden agregar miembros a un grupo personal.' });
+    }
 
     const existingMember = await prisma.userGroup.findUnique({
       where: {
@@ -168,6 +204,11 @@ router.post('/:id/members', auth, isPastora, async (req, res) => {
 router.delete('/:id/members/:userId', auth, isPastora, async (req, res) => {
   try {
     const { id, userId } = req.params;
+
+    const group = await prisma.group.findUnique({ where: { id }, select: { isPersonal: true } });
+    if (group?.isPersonal) {
+      return res.status(403).json({ error: 'No se pueden eliminar miembros de un grupo personal.' });
+    }
 
     await prisma.userGroup.delete({
       where: {

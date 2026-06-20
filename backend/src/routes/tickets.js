@@ -2,6 +2,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { auth, isPastora } = require('../middleware/auth');
 const { sendNewTicketNotification } = require('../services/whatsappNotifications');
+const { sendPushToUser, sendPushToGroup } = require('../services/pushNotifications');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -9,7 +10,7 @@ const prisma = new PrismaClient();
 // Create ticket (anonymous suggestion — any user can suggest to any group)
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, description, groupId, deadline } = req.body;
+    const { title, description, groupId, deadline, visibility, priority } = req.body;
 
     if (!groupId) {
       return res.status(400).json({ error: 'Debes seleccionar un grupo.' });
@@ -31,44 +32,80 @@ router.post('/', auth, async (req, res) => {
       }
     }
 
+    const isPastoraCreator = req.user.role === 'PASTORA';
+    const ticketData = {
+      title,
+      description,
+      groupId,
+      createdById: req.user.id,
+      deadline: deadline ? new Date(deadline) : null
+    };
+
+    if (isPastoraCreator) {
+      ticketData.status = 'APROBADO';
+      if (visibility) ticketData.visibility = visibility;
+      if (priority) ticketData.priority = priority;
+    }
+
     const ticket = await prisma.ticket.create({
-      data: {
-        title,
-        description,
-        groupId,
-        createdById: req.user.id,
-        deadline: deadline ? new Date(deadline) : null
-      },
+      data: ticketData,
       select: {
         id: true,
         title: true,
         description: true,
         status: true,
+        priority: true,
+        visibility: true,
         deadline: true,
         createdAt: true
       }
     });
 
-    // Notify all pastora users
-    const pastoras = await prisma.user.findMany({
-      where: { role: 'PASTORA' },
-      select: { id: true }
-    });
-
-    for (const pastora of pastoras) {
-      await prisma.notification.create({
-        data: {
-          userId: pastora.id,
-          ticketId: ticket.id,
-          message: `Nueva sugerencia en ${group.name}: "${title}"`
-        }
+    if (!isPastoraCreator) {
+      const pastoras = await prisma.user.findMany({
+        where: { role: 'PASTORA' },
+        select: { id: true }
       });
+
+      for (const pastora of pastoras) {
+        await prisma.notification.create({
+          data: {
+            userId: pastora.id,
+            ticketId: ticket.id,
+            message: `Nueva sugerencia en ${group.name}: "${title}"`
+          }
+        });
+      }
+    } else {
+      const members = group.members.filter(m => m.userId !== req.user.id);
+      for (const member of members) {
+        await prisma.notification.create({
+          data: {
+            userId: member.userId,
+            ticketId: ticket.id,
+            message: `Nuevo ticket aprobado en ${group.name}: "${title}"`
+          }
+        });
+      }
     }
 
-    // Send WhatsApp notification to group
     sendNewTicketNotification(groupId, ticket).catch(err =>
       console.error('WhatsApp notification failed:', err.message)
     );
+
+    if (isPastoraCreator) {
+      sendPushToGroup(groupId, {
+        title: `Nuevo ticket: ${title}`,
+        body: `Aprobado por ${req.user.name} en ${group.name}`,
+        url: `/tickets/${ticket.id}`
+      }).catch(err => console.error('Push notification failed:', err.message));
+    } else {
+      sendPushToGroup(groupId, {
+        title: `Nueva sugerencia: ${title}`,
+        body: `En ${group.name} - esperando revisión`,
+        url: `/tickets/${ticket.id}`
+      }, req.user.id).catch(err => console.error('Push notification failed:', err.message));
+    }
 
     res.status(201).json(ticket);
   } catch (error) {
@@ -338,10 +375,97 @@ router.patch('/:id', auth, async (req, res) => {
       });
     }
 
+    if (status && statusMessages[status]) {
+      const pushPayload = {
+        title: `Ticket ${statusMessages[status]}`,
+        body: `"${ticket.title}" ha cambiado a ${statusMessages[status]}`,
+        url: `/tickets/${ticket.id}`
+      };
+      for (const userId of notifyUserIds) {
+        sendPushToUser(userId, pushPayload).catch(() => {});
+      }
+    }
+
     res.json(ticket);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al actualizar ticket.' });
+  }
+});
+
+// Move ticket to another group (pastora or admin only)
+router.patch('/:id/move', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'PASTORA' && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Solo pastora o admin pueden mover tickets.' });
+    }
+
+    const { id } = req.params;
+    const { groupId, visibility, assignedUserId } = req.body;
+
+    if (!groupId) {
+      return res.status(400).json({ error: 'Debes seleccionar un grupo destino.' });
+    }
+
+    const targetGroup = await prisma.group.findUnique({ where: { id: groupId } });
+    if (!targetGroup) {
+      return res.status(404).json({ error: 'Grupo destino no encontrado.' });
+    }
+    if (targetGroup.isPersonal) {
+      return res.status(403).json({ error: 'No se pueden mover tickets a un grupo personal.' });
+    }
+
+    const ticket = await prisma.ticket.findUnique({ where: { id } });
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket no encontrado.' });
+    }
+
+    const updateData = { groupId };
+    if (visibility) updateData.visibility = visibility;
+
+    const updated = await prisma.ticket.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true, title: true, status: true, visibility: true,
+        groupId: true, createdAt: true
+      }
+    });
+
+    if (assignedUserId) {
+      await prisma.ticketViewer.upsert({
+        where: { ticketId_userId: { ticketId: id, userId: assignedUserId } },
+        update: {},
+        create: { ticketId: id, userId: assignedUserId }
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: assignedUserId,
+          ticketId: id,
+          message: `Te asignaron el ticket "${ticket.title}" en el grupo ${targetGroup.name}`
+        }
+      });
+    }
+
+    const creator = await prisma.user.findUnique({
+      where: { id: ticket.createdById },
+      select: { id: true }
+    });
+    if (creator) {
+      await prisma.notification.create({
+        data: {
+          userId: creator.id,
+          ticketId: id,
+          message: `Tu ticket "${ticket.title}" fue movido al grupo ${targetGroup.name}`
+        }
+      });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al mover ticket.' });
   }
 });
 

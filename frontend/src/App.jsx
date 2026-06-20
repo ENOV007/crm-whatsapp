@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { authAPI } from './services/api';
+import { subscribeToPush } from './services/pushManager';
 
 // Pages
 import Login from './pages/Login';
@@ -24,7 +25,10 @@ function App() {
     const token = localStorage.getItem('token');
     if (token) {
       authAPI.getMe()
-        .then(res => setUser(res.data))
+        .then(res => {
+          setUser(res.data);
+          subscribeToPush().catch(() => {});
+        })
         .catch(() => {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -44,6 +48,7 @@ function App() {
     } catch {
       setUser(userData);
     }
+    subscribeToPush().catch(() => {});
   };
 
   const logout = () => {
