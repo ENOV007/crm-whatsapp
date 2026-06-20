@@ -281,13 +281,16 @@ router.post('/trigger-auto', async (req, res) => {
       const codeArchive = path.join(tmpDir, `crm_code_${timestamp}.tar.gz`);
 
       try {
-        const repoRoot = fs.existsSync('/app/src') ? '/app' : path.join(__dirname, '../../..');
-        const hasGit = fs.existsSync(path.join(repoRoot, '.git'));
-        console.log(`[backup] repoRoot: ${repoRoot}, hasGit: ${hasGit}`);
+        const appDir = fs.existsSync('/app/src') ? '/app' : path.join(__dirname, '../../..');
+        const hasGit = fs.existsSync(path.join(appDir, '.git'));
+        console.log(`[backup] appDir: ${appDir}, hasGit: ${hasGit}`);
+        const dirs = ['backend/src', 'frontend/src', 'scripts'].filter(d => fs.existsSync(path.join(appDir, d)));
         if (hasGit) {
-          await execAsync(`git archive HEAD | gzip > "${codeArchive}"`, { cwd: repoRoot });
+          await execAsync(`git archive HEAD | gzip > "${codeArchive}"`, { cwd: appDir });
+        } else if (dirs.length > 0) {
+          await execAsync(`tar -czf "${codeArchive}" -C "${appDir}" ${dirs.join(' ')}`);
         } else {
-          await execAsync(`tar -czf "${codeArchive}" -C "${repoRoot}" backend/src frontend/src scripts`);
+          await execAsync(`tar -czf "${codeArchive}" -C "${appDir}" .`);
         }
         console.log(`[backup] Uploading ${codeArchive} to Drive...`);
         const { stdout, stderr } = await execAsync(`rclone copy "${codeArchive}" "gdrive:CRM-Backups/weekly/" --checksum -v`, { timeout: 120000 });
