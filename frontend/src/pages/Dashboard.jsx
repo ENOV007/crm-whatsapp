@@ -36,38 +36,10 @@ function Dashboard({ user }) {
 
   return (
     <div>
-      {/* Mi Espacio Personal */}
-      {personalGroup && (
-        <div className="mb-8">
-          <div className="card border-2 border-purple-200 bg-purple-50">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-purple-800">🏠 Mi Espacio Personal</h2>
-                <p className="text-purple-600 text-sm mt-1">Tus gestiones privadas — {personalGroup._count?.tickets || 0} tickets</p>
-              </div>
-              <div className="flex gap-2">
-                <Link
-                  to={`/groups/${personalGroup.id}`}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-medium"
-                >
-                  Ver tickets
-                </Link>
-                <Link
-                  to={`/create-ticket?groupId=${personalGroup.id}`}
-                  className="bg-white text-purple-600 border border-purple-300 px-4 py-2 rounded-lg hover:bg-purple-100 text-sm font-medium"
-                >
-                  + Crear
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Mi Grupo */}
       {myGroups.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Mis Grupos</h2>
+          <h2 className="text-xl font-bold mb-4">Mi Grupo</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {myGroups.map(group => (
               <Link
@@ -85,6 +57,26 @@ function Dashboard({ user }) {
                 </div>
               </Link>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grupo Personal */}
+      {personalGroup && (
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4">Mi Espacio Personal</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Link
+              to={`/groups/${personalGroup.id}`}
+              className="card hover:shadow-lg transition-shadow"
+            >
+              <h3 className="text-lg font-semibold mb-2">{personalGroup.name}</h3>
+              <p className="text-gray-600 mb-3 text-sm">{personalGroup.description || 'Gestiones privadas'}</p>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>1 miembro</span>
+                <span>{personalGroup._count?.tickets || 0} tickets</span>
+              </div>
+            </Link>
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { adminAPI, authAPI, ticketsAPI, backupAPI, whatsappAPI, groupsAPI } from '../services/api';
+import { adminAPI, authAPI, ticketsAPI, backupAPI, whatsappAPI } from '../services/api';
 
 function AdminPanel({ user }) {
   const [stats, setStats] = useState(null);
@@ -32,7 +32,6 @@ function AdminPanel({ user }) {
   const [whatsappTestMsg, setWhatsappTestMsg] = useState('');
   const [whatsappTestSending, setWhatsappTestSending] = useState(false);
   const [linkingGroup, setLinkingGroup] = useState(null);
-  const [personalGroup, setPersonalGroup] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -52,18 +51,16 @@ function AdminPanel({ user }) {
 
   const fetchData = async () => {
     try {
-      const [statsRes, usersRes, groupsRes, ticketsRes, personalRes] = await Promise.all([
+      const [statsRes, usersRes, groupsRes, ticketsRes] = await Promise.all([
         adminAPI.getStats(),
         adminAPI.getUsers(),
         adminAPI.getGroups(),
-        ticketsAPI.getAllIncludingHidden(),
-        groupsAPI.getMyPersonal()
+        ticketsAPI.getAllIncludingHidden()
       ]);
       setStats(statsRes.data);
       setUsers(usersRes.data);
       setGroups(groupsRes.data);
       setTickets(ticketsRes.data);
-      setPersonalGroup(personalRes.data);
     } catch (error) {
       console.error('Error fetching admin data:', error);
     } finally {
@@ -486,32 +483,6 @@ function AdminPanel({ user }) {
       {/* Overview Tab */}
       {activeTab === 'overview' && stats && (
         <div>
-          {/* Personal Space */}
-          {personalGroup && (
-            <div className="card mb-6 border-2 border-purple-200">
-              <h2 className="text-xl font-semibold mb-2 text-purple-800">🏠 Mi Espacio Personal</h2>
-              <p className="text-sm text-gray-500 mb-3">Tus gestiones privadas</p>
-              <Link
-                to={`/groups/${personalGroup.id}`}
-                className="block p-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100"
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-purple-800">{personalGroup.name}</p>
-                    <p className="text-sm text-purple-600">{personalGroup._count?.tickets || 0} tickets</p>
-                  </div>
-                  <span className="text-purple-600">→</span>
-                </div>
-              </Link>
-              <Link
-                to={`/create-ticket?groupId=${personalGroup.id}`}
-                className="block mt-2 text-center text-sm text-purple-600 hover:text-purple-800"
-              >
-                + Crear ticket personal
-              </Link>
-            </div>
-          )}
-
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="card text-center">
               <p className="text-3xl font-bold text-blue-600">{stats.totalUsers}</p>

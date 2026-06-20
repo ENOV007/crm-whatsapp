@@ -5,7 +5,6 @@ import { ticketsAPI, groupsAPI } from '../services/api';
 function PastoraPanel({ user }) {
   const [tickets, setTickets] = useState([]);
   const [groups, setGroups] = useState([]);
-  const [personalGroup, setPersonalGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(null);
 
@@ -15,14 +14,12 @@ function PastoraPanel({ user }) {
 
   const fetchData = async () => {
     try {
-      const [ticketsRes, groupsRes, personalRes] = await Promise.all([
+      const [ticketsRes, groupsRes] = await Promise.all([
         ticketsAPI.getPastora(),
-        groupsAPI.getAll(),
-        groupsAPI.getMyPersonal()
+        groupsAPI.getAll()
       ]);
       setTickets(ticketsRes.data);
       setGroups(groupsRes.data);
-      setPersonalGroup(personalRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -100,32 +97,6 @@ function PastoraPanel({ user }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Personal Space */}
-        {personalGroup && (
-          <div className="card border-2 border-purple-200">
-            <h2 className="text-xl font-semibold mb-2 text-purple-800">🏠 Mi Espacio Personal</h2>
-            <p className="text-sm text-gray-500 mb-3">Tus gestiones privadas</p>
-            <Link
-              to={`/groups/${personalGroup.id}`}
-              className="block p-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100"
-            >
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-medium text-purple-800">{personalGroup.name}</p>
-                  <p className="text-sm text-purple-600">{personalGroup._count?.tickets || 0} tickets</p>
-                </div>
-                <span className="text-purple-600">→</span>
-              </div>
-            </Link>
-            <Link
-              to={`/create-ticket?groupId=${personalGroup.id}`}
-              className="block mt-2 text-center text-sm text-purple-600 hover:text-purple-800"
-            >
-              + Crear ticket personal
-            </Link>
-          </div>
-        )}
-
         {/* My Groups */}
         <div className="card">
           <h2 className="text-xl font-semibold mb-4">Mis Grupos</h2>
