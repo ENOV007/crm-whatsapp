@@ -63,12 +63,13 @@ router.get('/my-status', auth, async (req, res) => {
 
 router.post('/send-test', auth, async (req, res) => {
   try {
-    const { title, body: msgBody } = req.body;
+    const { title, body: msgBody, userId } = req.body;
     if (!title || !msgBody) {
       return res.status(400).json({ error: 'Se requiere título y mensaje.' });
     }
-    console.log(`[push] Test push requested by ${req.user.name} (${req.user.id})`);
-    const result = await sendPushToUser(req.user.id, {
+    const targetUserId = userId || req.user.id;
+    console.log(`[push] Test push from ${req.user.name} to user ${targetUserId}`);
+    const result = await sendPushToUser(targetUserId, {
       title,
       body: msgBody,
       url: '/',

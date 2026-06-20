@@ -121,7 +121,7 @@ export const pushAPI = {
   subscribe: (subscription) => api.post('/push/subscribe', { subscription }),
   unsubscribe: (data) => api.post('/push/unsubscribe', data),
   getMyStatus: () => api.get('/push/my-status'),
-  sendTest: (title, body) => api.post('/push/send-test', { title, body }),
+  sendTest: (title, body, userId) => api.post('/push/send-test', { title, body, userId }),
   getAllSubscriptions: () => api.get('/push/all-subscriptions')
 };
 

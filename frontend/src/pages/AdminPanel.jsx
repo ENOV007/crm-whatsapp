@@ -125,7 +125,7 @@ function AdminPanel({ user }) {
     setPushTestResult(null);
     try {
       const user = users.find(u => u.id === pushTestUser);
-      const res = await pushAPI.sendTest(pushTestTitle, pushTestMsg);
+      const res = await pushAPI.sendTest(pushTestTitle, pushTestMsg, pushTestUser);
       setPushTestResult({ success: true, message: res.data.message });
     } catch (e) {
       setPushTestResult({ success: false, message: e.response?.data?.error || 'Error al enviar' });
