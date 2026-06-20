@@ -10,8 +10,8 @@ RUN npx prisma generate --schema=src/prisma/schema.prisma
 
 FROM node:18-alpine
 
-RUN apk add --no-cache bash wget openssl postgresql-client curl unzip
-RUN curl -sL https://downloads.rclone.org/current/rclone-current-linux-amd64.zip -o /tmp/rclone.zip && \
+RUN apk add --no-cache bash wget openssl postgresql-client unzip
+RUN wget -q https://downloads.rclone.org/current/rclone-current-linux-amd64.zip -O /tmp/rclone.zip && \
     unzip /tmp/rclone.zip -d /tmp && \
     cp /tmp/rclone-*/rclone /usr/bin/rclone && \
     chmod +x /usr/bin/rclone && \
