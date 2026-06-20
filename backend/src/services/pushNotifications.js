@@ -28,14 +28,18 @@ async function sendPushToUser(userId, payload) {
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
   const results = [];
 
+  console.log(`[push] Sending to user ${userId}, ${subscriptions.length} subscriptions`);
+
   for (const sub of subscriptions) {
     try {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify(payload)
       );
+      console.log(`[push] Sent to ${sub.endpoint.substring(0, 50)}...`);
       results.push({ endpoint: sub.endpoint, status: 'sent' });
     } catch (error) {
+      console.error(`[push] Failed for ${sub.endpoint.substring(0, 50)}...: ${error.statusCode} ${error.message}`);
       if (error.statusCode === 410 || error.statusCode === 404) {
         await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
         results.push({ endpoint: sub.endpoint, status: 'removed' });

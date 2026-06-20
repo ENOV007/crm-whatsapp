@@ -19,10 +19,11 @@ router.post('/subscribe', auth, async (req, res) => {
     if (!subscription?.endpoint || !subscription?.keys) {
       return res.status(400).json({ error: 'Suscripción inválida.' });
     }
+    console.log(`[push] Subscribe: user ${req.user.name} (${req.user.id}), endpoint ${subscription.endpoint.substring(0, 50)}...`);
     await saveSubscription(req.user.id, subscription, req.headers['user-agent']);
     res.json({ message: 'Suscripción guardada.' });
   } catch (error) {
-    console.error('Error saving push subscription:', error);
+    console.error('[push] Error saving subscription:', error);
     res.status(500).json({ error: 'Error al guardar suscripción.' });
   }
 });
@@ -66,6 +67,7 @@ router.post('/send-test', auth, async (req, res) => {
     if (!title || !msgBody) {
       return res.status(400).json({ error: 'Se requiere título y mensaje.' });
     }
+    console.log(`[push] Test push requested by ${req.user.name} (${req.user.id})`);
     const result = await sendPushToUser(req.user.id, {
       title,
       body: msgBody,
@@ -74,9 +76,10 @@ router.post('/send-test', auth, async (req, res) => {
     });
     const sent = result.filter(r => r.status === 'sent').length;
     const failed = result.filter(r => r.status === 'error').length;
+    console.log(`[push] Result: ${sent} sent, ${failed} failed`);
     res.json({ message: `Enviado a ${sent} dispositivo(s)${failed > 0 ? `, ${failed} falló` : ''}`, results: result });
   } catch (error) {
-    console.error('Error sending test push:', error);
+    console.error('[push] Error sending test push:', error);
     res.status(500).json({ error: 'Error al enviar push de prueba.' });
   }
 });
