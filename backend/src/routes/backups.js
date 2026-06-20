@@ -254,9 +254,13 @@ router.post('/trigger-auto', async (req, res) => {
 
       try {
         const info = await dumpDBToFile(dumpFile);
+        console.log(`[backup] DB dump: ${info.tables} tables, ${info.rows} rows`);
         await execAsync(`gzip -9 "${dumpFile}"`);
         const gzFile = `${dumpFile}.gz`;
-        await execAsync(`rclone copy "${gzFile}" "gdrive:CRM-Backups/daily/" --checksum`);
+        console.log(`[backup] Uploading ${gzFile} to Drive...`);
+        const { stdout, stderr } = await execAsync(`rclone copy "${gzFile}" "gdrive:CRM-Backups/daily/" --checksum -v`, { timeout: 120000 });
+        console.log(`[backup] rclone stdout: ${stdout}`);
+        if (stderr) console.log(`[backup] rclone stderr: ${stderr}`);
         const duration = Math.round((Date.now() - startTime) / 1000);
         await prisma.backupLog.update({
           where: { id: logEntry.id },
@@ -264,9 +268,10 @@ router.post('/trigger-auto', async (req, res) => {
         });
         res.json({ message: 'Backup DB completado', logId: logEntry.id });
       } catch (error) {
-        console.error('Auto DB backup error:', error);
+        console.error('[backup] Auto DB backup error:', error.message);
+        console.error('[backup] Full error:', error);
         await prisma.backupLog.update({ where: { id: logEntry.id }, data: { status: 'error', message: error.message } });
-        res.status(500).json({ error: 'Error en backup DB.' });
+        res.status(500).json({ error: 'Error en backup DB: ' + error.message });
       } finally {
         try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
       }
@@ -278,12 +283,16 @@ router.post('/trigger-auto', async (req, res) => {
       try {
         const repoRoot = path.join(__dirname, '../../..');
         const hasGit = fs.existsSync(path.join(repoRoot, '.git'));
+        console.log(`[backup] repoRoot: ${repoRoot}, hasGit: ${hasGit}`);
         if (hasGit) {
           await execAsync(`git archive HEAD | gzip > "${codeArchive}"`, { cwd: repoRoot });
         } else {
           await execAsync(`tar -czf "${codeArchive}" -C "${repoRoot}" backend/src frontend/src scripts`);
         }
-        await execAsync(`rclone copy "${codeArchive}" "gdrive:CRM-Backups/weekly/" --checksum`);
+        console.log(`[backup] Uploading ${codeArchive} to Drive...`);
+        const { stdout, stderr } = await execAsync(`rclone copy "${codeArchive}" "gdrive:CRM-Backups/weekly/" --checksum -v`, { timeout: 120000 });
+        console.log(`[backup] rclone stdout: ${stdout}`);
+        if (stderr) console.log(`[backup] rclone stderr: ${stderr}`);
         const duration = Math.round((Date.now() - startTime) / 1000);
         await prisma.backupLog.update({
           where: { id: logEntry.id },
@@ -291,9 +300,10 @@ router.post('/trigger-auto', async (req, res) => {
         });
         res.json({ message: 'Backup código completado', logId: logEntry.id });
       } catch (error) {
-        console.error('Auto code backup error:', error);
+        console.error('[backup] Auto code backup error:', error.message);
+        console.error('[backup] Full error:', error);
         await prisma.backupLog.update({ where: { id: logEntry.id }, data: { status: 'error', message: error.message } });
-        res.status(500).json({ error: 'Error en backup código.' });
+        res.status(500).json({ error: 'Error en backup código: ' + error.message });
       } finally {
         try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
       }
