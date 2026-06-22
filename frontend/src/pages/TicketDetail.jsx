@@ -616,7 +616,6 @@ function TicketDetail({ user }) {
                         className="text-blue-600 hover:text-blue-800 text-xs"
                       >Editar</button>
                     )}
-                    )}
                   </div>
                 )}
               </div>
