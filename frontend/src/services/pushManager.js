@@ -31,6 +31,12 @@ export async function subscribeToPush() {
       return null;
     }
 
+    const existingSub = await swRegistration.pushManager.getSubscription();
+    if (existingSub) {
+      await existingSub.unsubscribe();
+      await pushAPI.unsubscribe({ endpoint: existingSub.endpoint }).catch(() => {});
+    }
+
     const res = await pushAPI.getVapidKey();
     const publicKey = res.data.publicKey;
 
