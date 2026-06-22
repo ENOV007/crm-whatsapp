@@ -115,10 +115,17 @@ router.post('/', auth, async (req, res) => {
         url: `/tickets/${ticket.id}`,
         icon: '/icon-notification.png'
       }).catch(err => console.error('Push notification failed:', err.message));
+    } else if (isLeader) {
+      sendPushToGroup(groupId, {
+        title: `💡 Nueva sugerencia: ${title}`,
+        body: `✅ Aprobado por ${req.user.name} (líder) en ${group.name}`,
+        url: `/tickets/${ticket.id}`,
+        icon: '/icon-notification.png'
+      }, req.user.id).catch(err => console.error('Push notification failed:', err.message));
     } else {
       sendPushToGroup(groupId, {
         title: `💡 Nueva sugerencia: ${title}`,
-        body: `⏳ En ${group.name} — esperando revisión de la pastora`,
+        body: `⏳ En ${group.name} — esperando aprobación del líder o la pastora`,
         url: `/tickets/${ticket.id}`,
         icon: '/icon-notification.png'
       }, req.user.id).catch(err => console.error('Push notification failed:', err.message));
@@ -410,7 +417,7 @@ router.patch('/:id', auth, async (req, res) => {
       const emoji = statusEmojis[status] || '📌';
       const pushPayload = {
         title: `${emoji} Ticket ${statusMessages[status]}`,
-        body: `"${ticket.title}" ha cambiado a ${statusMessages[status]}`,
+        body: `"${ticket.title}" en ${ticket.group.name} ha cambiado a ${statusMessages[status]}`,
         url: `/tickets/${ticket.id}`,
         icon: '/icon-notification.png'
       };
@@ -489,7 +496,7 @@ router.patch('/:id/move', auth, async (req, res) => {
 
       sendPushToUser(assignedUserId, {
         title: `📦 Ticket asignado`,
-        body: `"${ticket.title}" en el grupo ${targetGroup.name}`,
+        body: `Te asignaron "${ticket.title}" en el grupo ${targetGroup.name}`,
         url: `/tickets/${id}`,
         icon: '/icon-notification.png'
       }).catch(() => {});
@@ -614,7 +621,7 @@ router.post('/:ticketId/comments/:commentId/request-review', auth, async (req, r
 
       sendPushToUser(leader.user.id, {
         title: `🔍 Revisión solicitada`,
-        body: `${req.user.name} pide revisión de un comentario`,
+        body: `${req.user.name} pide revisión de un comentario en "${comment.ticket.title}"`,
         url: `/tickets/${ticketId}`,
         icon: '/icon-notification.png'
       }).catch(() => {});
@@ -721,7 +728,7 @@ router.patch('/:ticketId/comments/:commentId/review', auth, async (req, res) => 
       });
       sendPushToUser(comment.userId, {
         title: `${emoji} Comentario ${text}`,
-        body: `Por ${req.user.name} en "${comment.ticket.title}"`,
+        body: `${req.user.name} ${text} tu comentario en "${comment.ticket.title}"`,
         url: `/tickets/${ticketId}`,
         icon: '/icon-notification.png'
       }).catch(() => {});
