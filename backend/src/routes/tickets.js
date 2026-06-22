@@ -113,21 +113,21 @@ router.post('/', auth, async (req, res) => {
         title: `📋 Nuevo ticket: ${title}`,
         body: `✅ Aprobado por ${req.user.name} en ${group.name}`,
         url: `/tickets/${ticket.id}`,
-        icon: '/icon-notification.png'
+        icon: '/icon-192.png'
       }).catch(err => console.error('Push notification failed:', err.message));
     } else if (isLeader) {
       sendPushToGroup(groupId, {
         title: `💡 Nueva sugerencia: ${title}`,
         body: `✅ Aprobado por ${req.user.name} (líder) en ${group.name}`,
         url: `/tickets/${ticket.id}`,
-        icon: '/icon-notification.png'
+        icon: '/icon-192.png'
       }, req.user.id).catch(err => console.error('Push notification failed:', err.message));
     } else {
       sendPushToGroup(groupId, {
         title: `💡 Nueva sugerencia: ${title}`,
         body: `⏳ En ${group.name} — esperando aprobación del líder o la pastora`,
         url: `/tickets/${ticket.id}`,
-        icon: '/icon-notification.png'
+        icon: '/icon-192.png'
       }, req.user.id).catch(err => console.error('Push notification failed:', err.message));
     }
 
@@ -419,7 +419,7 @@ router.patch('/:id', auth, async (req, res) => {
         title: `${emoji} Ticket ${statusMessages[status]}`,
         body: `"${ticket.title}" en ${ticket.group.name} ha cambiado a ${statusMessages[status]}`,
         url: `/tickets/${ticket.id}`,
-        icon: '/icon-notification.png'
+        icon: '/icon-192.png'
       };
       for (const userId of notifyUserIds) {
         sendPushToUser(userId, pushPayload).catch(() => {});
@@ -498,7 +498,7 @@ router.patch('/:id/move', auth, async (req, res) => {
         title: `📦 Ticket asignado`,
         body: `Te asignaron "${ticket.title}" en el grupo ${targetGroup.name}`,
         url: `/tickets/${id}`,
-        icon: '/icon-notification.png'
+        icon: '/icon-192.png'
       }).catch(() => {});
     }
 
@@ -519,7 +519,7 @@ router.patch('/:id/move', auth, async (req, res) => {
         title: `🔀 Ticket movido`,
         body: `"${ticket.title}" → ${targetGroup.name}`,
         url: `/tickets/${id}`,
-        icon: '/icon-notification.png'
+        icon: '/icon-192.png'
       }).catch(() => {});
     }
 
@@ -623,7 +623,7 @@ router.post('/:ticketId/comments/:commentId/request-review', auth, async (req, r
         title: `🔍 Revisión solicitada`,
         body: `${req.user.name} pide revisión de un comentario en "${comment.ticket.title}"`,
         url: `/tickets/${ticketId}`,
-        icon: '/icon-notification.png'
+        icon: '/icon-192.png'
       }).catch(() => {});
     }
 
@@ -713,7 +713,7 @@ router.patch('/:ticketId/comments/:commentId/review', auth, async (req, res) => 
           title: `📨 Comentario enviado a revisión`,
           body: `${req.user.name} en "${comment.ticket.title}"`,
           url: `/tickets/${ticketId}`,
-          icon: '/icon-notification.png'
+          icon: '/icon-192.png'
         }).catch(() => {});
       }
     } else {
@@ -730,7 +730,7 @@ router.patch('/:ticketId/comments/:commentId/review', auth, async (req, res) => 
         title: `${emoji} Comentario ${text}`,
         body: `${req.user.name} ${text} tu comentario en "${comment.ticket.title}"`,
         url: `/tickets/${ticketId}`,
-        icon: '/icon-notification.png'
+        icon: '/icon-192.png'
       }).catch(() => {});
     }
 

@@ -73,7 +73,7 @@ router.post('/send-test', auth, async (req, res) => {
       title,
       body: msgBody,
       url: '/',
-      icon: '/icon-notification.png'
+      icon: '/icon-192.png'
     });
     const sent = result.filter(r => r.status === 'sent').length;
     const failed = result.filter(r => r.status === 'error').length;
