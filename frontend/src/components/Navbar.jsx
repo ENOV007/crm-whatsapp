@@ -1,20 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { notificationsAPI } from '../services/api';
-import { subscribeToPush } from '../services/pushManager';
+import { notificationsAPI, pushAPI } from '../services/api';
+import { subscribeToPush, unsubscribeFromPush } from '../services/pushManager';
 
 function Navbar({ user, onLogout }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushToggling, setPushToggling] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000); // Check every 30 seconds
+    checkPushStatus();
+    const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const checkPushStatus = async () => {
+    try {
+      const res = await pushAPI.getMyStatus();
+      setPushEnabled(res.data.subscribed);
+    } catch (e) {
+      setPushEnabled(false);
+    }
+  };
 
   const fetchUnreadCount = async () => {
     try {
@@ -30,13 +41,25 @@ function Navbar({ user, onLogout }) {
       const res = await notificationsAPI.getAll({ unread: 'true' });
       setNotifications(res.data);
       setShowNotifications(!showNotifications);
-      if (!pushEnabled) {
-        subscribeToPush().then(sub => {
-          if (sub) setPushEnabled(true);
-        }).catch(() => {});
-      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const togglePush = async () => {
+    setPushToggling(true);
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush();
+        setPushEnabled(false);
+      } else {
+        const sub = await subscribeToPush();
+        setPushEnabled(!!sub);
+      }
+    } catch (e) {
+      console.error('Push toggle error:', e);
+    } finally {
+      setPushToggling(false);
     }
   };
 
@@ -94,17 +117,17 @@ function Navbar({ user, onLogout }) {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg z-50">
                   <div className="p-4 border-b">
                     <h3 className="font-semibold">Notificaciones</h3>
                   </div>
-                  {notifications.length === 0 ? (
-                    <div className="p-4 text-gray-500 text-center">
-                      No hay notificaciones
-                    </div>
-                  ) : (
-                    <div>
-                      {notifications.map(notification => (
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-gray-500 text-center">
+                        No hay notificaciones
+                      </div>
+                    ) : (
+                      notifications.map(notification => (
                         <div
                           key={notification.id}
                           className="p-4 border-b hover:bg-gray-50 cursor-pointer"
@@ -121,9 +144,27 @@ function Navbar({ user, onLogout }) {
                             {new Date(notification.createdAt).toLocaleString()}
                           </p>
                         </div>
-                      ))}
+                      ))
+                    )}
+                  </div>
+                  {/* Push toggle */}
+                  <div className="p-3 border-t bg-gray-50 rounded-b-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🔔</span>
+                      <span className="text-sm text-gray-700">Notificaciones push</span>
                     </div>
-                  )}
+                    <button
+                      onClick={togglePush}
+                      disabled={pushToggling}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        pushEnabled ? 'bg-green-500' : 'bg-gray-300'
+                      } ${pushToggling ? 'opacity-50' : ''}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        pushEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
