@@ -12,6 +12,8 @@ function CreateTicket({ user }) {
   const [error, setError] = useState('');
 
   const isPastoraOrAdmin = user?.role === 'PASTORA' || user?.role === 'ADMIN';
+  const isLeaderOfAnyGroup = user?.groups?.some(g => g.isLeader);
+  const canCreateFull = isPastoraOrAdmin || isLeaderOfAnyGroup;
 
   const [formData, setFormData] = useState({
     title: '',
@@ -30,7 +32,7 @@ function CreateTicket({ user }) {
     try {
       const [groupsRes, personalRes] = await Promise.all([
         groupsAPI.getAll(),
-        isPastoraOrAdmin ? groupsAPI.getMyPersonal() : Promise.resolve({ data: null })
+        canCreateFull ? groupsAPI.getMyPersonal() : Promise.resolve({ data: null })
       ]);
       const visibleGroups = groupsRes.data.filter(g => !g.isPersonal);
       setGroups(visibleGroups);
@@ -56,7 +58,7 @@ function CreateTicket({ user }) {
 
     try {
       const payload = { ...formData };
-      if (isPastoraOrAdmin && payload.deadline) {
+      if (canCreateFull && payload.deadline) {
         payload.deadline = new Date(payload.deadline).toISOString();
       } else {
         delete payload.deadline;
@@ -84,16 +86,16 @@ function CreateTicket({ user }) {
 
       <div className="card">
         <h1 className="text-2xl font-bold mb-6">
-          {isPastoraOrAdmin ? 'Nuevo Ticket' : 'Nueva Sugerencia'}
+          {canCreateFull ? 'Nuevo Ticket' : 'Nueva Sugerencia'}
         </h1>
         
-        {isPastoraOrAdmin ? (
+        {canCreateFull ? (
           <p className="text-gray-600 mb-6">
             Tu ticket será aprobado automáticamente. Selecciona la visibilidad y prioridad.
           </p>
         ) : (
           <p className="text-gray-600 mb-6">
-            Tu sugerencia será enviada de forma anónima al grupo. La pastora la revisará y decidirá si aprueba o rechaza.
+            Tu sugerencia será visible para todo tu grupo. El líder y la pastora la revisarán y decidirán si aprueban o rechazan.
           </p>
         )}
 
@@ -153,7 +155,7 @@ function CreateTicket({ user }) {
             />
           </div>
 
-          {isPastoraOrAdmin && (
+          {canCreateFull && (
             <>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
@@ -164,8 +166,7 @@ function CreateTicket({ user }) {
                     onChange={handleChange}
                     className="input-field"
                   >
-                    <option value="INICIAL">Inicial (solo tú y pastora)</option>
-                    <option value="PRIVATE">Privado (grupo)</option>
+                    <option value="PRIVATE">Privado (solo grupo)</option>
                     <option value="PUBLIC">Público (toda la iglesia)</option>
                   </select>
                 </div>
@@ -197,10 +198,10 @@ function CreateTicket({ user }) {
             </>
           )}
 
-          {!isPastoraOrAdmin && (
+          {!canCreateFull && (
             <div className="mb-6">
               <p className="text-sm text-gray-500 mb-4">
-                La fecha límite será establecida por la pastora al aprobar tu sugerencia.
+                La fecha límite y prioridad serán establecidas por el líder o la pastora al aprobar tu sugerencia.
               </p>
             </div>
           )}
@@ -214,7 +215,7 @@ function CreateTicket({ user }) {
               disabled={submitting}
               className="btn-primary"
             >
-              {submitting ? 'Enviando...' : (isPastoraOrAdmin ? 'Crear Ticket' : 'Enviar Sugerencia')}
+              {submitting ? 'Enviando...' : (canCreateFull ? 'Crear Ticket' : 'Enviar Sugerencia')}
             </button>
           </div>
         </form>

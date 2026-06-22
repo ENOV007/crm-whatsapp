@@ -84,11 +84,42 @@ function scheduleWhatsAppNotifications() {
   console.log('[Scheduler] WhatsApp notifications scheduled (status: 3 days, deadlines: daily)');
 }
 
+function scheduleAutoDelete() {
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  setInterval(async () => {
+    console.log('[AutoDelete] Checking for expired rejected tickets...');
+    try {
+      const expired = await prisma.ticket.findMany({
+        where: {
+          status: 'RECHAZADO',
+          autoDeleteAt: { not: null, lte: new Date() }
+        }
+      });
+      for (const ticket of expired) {
+        await prisma.comment.deleteMany({ where: { ticketId: ticket.id } });
+        await prisma.notification.deleteMany({ where: { ticketId: ticket.id } });
+        await prisma.ticketViewer.deleteMany({ where: { ticketId: ticket.id } });
+        await prisma.ticket.delete({ where: { id: ticket.id } });
+        console.log(`[AutoDelete] Ticket "${ticket.title}" eliminado automáticamente`);
+      }
+      if (expired.length > 0) {
+        console.log(`[AutoDelete] ${expired.length} ticket(s) eliminado(s)`);
+      }
+    } catch (error) {
+      console.error('[AutoDelete] Error:', error.message);
+    }
+  }, ONE_DAY);
+
+  console.log('[AutoDelete] Scheduled (daily check for rejected tickets)');
+}
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   scheduleWhatsAppNotifications();
+  scheduleAutoDelete();
 });
 
 module.exports = app;

@@ -42,4 +42,11 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { auth, isPastora, isAdmin };
+const isLeaderOfGroup = async (userId, groupId) => {
+  const membership = await prisma.userGroup.findFirst({
+    where: { userId, groupId, isLeader: true }
+  });
+  return !!membership;
+};
+
+module.exports = { auth, isPastora, isAdmin, isLeaderOfGroup };

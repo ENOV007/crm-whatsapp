@@ -85,6 +85,7 @@ function getPriorityColor(priority) {
 
 function getStatusEmoji(status) {
   switch (status) {
+    case 'PENDIENTE_APROBACION': return '🟡';
     case 'PENDIENTE_PASTORA': return '⏳';
     case 'PENDIENTE_REVISION': return '👀';
     case 'APROBADO': return '✅';
@@ -220,7 +221,7 @@ async function sendGroupStatusSummary(groupId) {
     where: {
       groupId: groupId,
       hidden: false,
-      status: { notIn: ['COMPLETADO', 'RECHAZADO'] }
+      status: { notIn: ['COMPLETADO', 'RECHAZADO', 'PENDIENTE_APROBACION'] }
     },
     select: {
       id: true,

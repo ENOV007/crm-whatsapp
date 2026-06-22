@@ -66,9 +66,10 @@ model Ticket {
   status      TicketStatus @default(PENDIENTE_PASTORA)
   priority    TicketPriority?
   visibility  TicketVisibility @default(INICIAL)
-  deadline    DateTime?
-  hidden      Boolean    @default(false)
-  groupId     String
+  deadline      DateTime?
+  autoDeleteAt  DateTime?
+  hidden        Boolean    @default(false)
+  groupId       String
   createdById String
   group       Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
   creator     User       @relation("TicketCreator", fields: [createdById], references: [id], onDelete: Cascade)
@@ -103,6 +104,7 @@ model TicketViewer {
 }
 
 enum TicketStatus {
+  PENDIENTE_APROBACION
   PENDIENTE_PASTORA
   PENDIENTE_REVISION
   APROBADO

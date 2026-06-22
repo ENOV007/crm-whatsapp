@@ -583,7 +583,7 @@ function AdminPanel({ user }) {
               <p className="text-gray-600">Tickets</p>
             </div>
             <div className="card text-center">
-              <p className="text-3xl font-bold text-red-600">{stats.ticketsByStatus?.PENDIENTE_PASTORA || 0}</p>
+              <p className="text-3xl font-bold text-orange-600">{(stats.ticketsByStatus?.PENDIENTE_APROBACION || 0) + (stats.ticketsByStatus?.PENDIENTE_PASTORA || 0)}</p>
               <p className="text-gray-600">Pendientes</p>
             </div>
           </div>
@@ -1129,6 +1129,7 @@ function AdminPanel({ user }) {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs px-2 py-1 rounded ${
+                          ticket.status === 'PENDIENTE_APROBACION' ? 'bg-orange-100 text-orange-800' :
                           ticket.status === 'PENDIENTE_PASTORA' ? 'bg-yellow-100 text-yellow-800' :
                           ticket.status === 'APROBADO' ? 'bg-green-100 text-green-800' :
                           ticket.status === 'EN_PROGRESO' ? 'bg-blue-100 text-blue-800' :

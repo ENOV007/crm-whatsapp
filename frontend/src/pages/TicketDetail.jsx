@@ -175,6 +175,7 @@ function TicketDetail({ user }) {
 
   const getStatusClass = (status) => {
     const classes = {
+      PENDIENTE_APROBACION: 'bg-orange-100 text-orange-800 px-2 py-1 rounded animate-pulse',
       PENDIENTE_PASTORA: 'status-pending',
       PENDIENTE_REVISION: 'bg-orange-100 text-orange-800 px-2 py-1 rounded',
       APROBADO: 'status-approved',
@@ -187,6 +188,7 @@ function TicketDetail({ user }) {
 
   const getStatusText = (status) => {
     const texts = {
+      PENDIENTE_APROBACION: 'Pendiente Aprobación',
       PENDIENTE_PASTORA: 'Pendiente Pastora',
       PENDIENTE_REVISION: 'Pendiente Revisión',
       APROBADO: 'Aprobado',
@@ -383,14 +385,15 @@ function TicketDetail({ user }) {
 
         {/* Sidebar */}
         <div>
-          {/* Status Actions (Pastora + Admin) */}
-          {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
+          {/* Status Actions (Pastora + Admin + Leader of the ticket's group) */}
+          {(user.role === 'PASTORA' || user.role === 'ADMIN' || isLeader) && (
             <div className="card mb-6">
               <h2 className="text-xl font-semibold mb-4">Gestionar Ticket</h2>
               <div className="space-y-2">
                 {user.role === 'ADMIN' ? (
                   <div className="grid grid-cols-2 gap-2">
                     {[
+                      { status: 'PENDIENTE_APROBACION', label: 'Pendiente', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200' },
                       { status: 'PENDIENTE_PASTORA', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' },
                       { status: 'PENDIENTE_REVISION', label: 'Revisión', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200' },
                       { status: 'APROBADO', label: 'Aprobar', color: 'bg-green-100 text-green-800 hover:bg-green-200' },
@@ -413,9 +416,20 @@ function TicketDetail({ user }) {
                       </button>
                     ))}
                   </div>
+                ) : isLeader && ticket.status === 'PENDIENTE_APROBACION' ? (
+                  <>
+                    <button onClick={() => setShowApproveModal(true)} className="btn-primary w-full">Aprobar</button>
+                    <button onClick={() => handleStatusChange('RECHAZADO')} className="btn-danger w-full">Rechazar</button>
+                  </>
                 ) : (
                   <>
                     {ticket.status === 'PENDIENTE_PASTORA' && (
+                      <>
+                        <button onClick={() => setShowApproveModal(true)} className="btn-primary w-full">Aprobar</button>
+                        <button onClick={() => handleStatusChange('RECHAZADO')} className="btn-danger w-full">Rechazar</button>
+                      </>
+                    )}
+                    {ticket.status === 'PENDIENTE_APROBACION' && (
                       <>
                         <button onClick={() => setShowApproveModal(true)} className="btn-primary w-full">Aprobar</button>
                         <button onClick={() => handleStatusChange('RECHAZADO')} className="btn-danger w-full">Rechazar</button>
@@ -488,7 +502,7 @@ function TicketDetail({ user }) {
                     ) : (
                       <dd className="text-gray-400 italic">Sin fecha</dd>
                     )}
-                    {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
+                    {(user.role === 'PASTORA' || user.role === 'ADMIN' || isLeader) && (
                       <button
                         onClick={() => { setEditDeadline(ticket.deadline ? ticket.deadline.split('T')[0] : getMinDate()); setIsEditingDeadline(true); }}
                         className="text-blue-600 hover:text-blue-800 text-xs"
@@ -520,7 +534,7 @@ function TicketDetail({ user }) {
                     ) : (
                       <dd className="text-gray-400 italic">Sin asignar</dd>
                     )}
-                    {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
+                    {(user.role === 'PASTORA' || user.role === 'ADMIN' || isLeader) && (
                       <button
                         onClick={() => { setEditPriority(ticket.priority || 'BAJA'); setIsEditingPriority(true); }}
                         className="text-blue-600 hover:text-blue-800 text-xs"
@@ -592,7 +606,7 @@ function TicketDetail({ user }) {
                          : ticket.visibility === 'INICIAL' ? '📝 Inicial'
                          : '🔒 Grupo'}
                     </span>
-                    {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
+                    {(user.role === 'PASTORA' || user.role === 'ADMIN' || isLeader) && (
                       <button
                         onClick={() => {
                           setEditVisibility(ticket.visibility || 'PRIVATE');
@@ -601,6 +615,7 @@ function TicketDetail({ user }) {
                         }}
                         className="text-blue-600 hover:text-blue-800 text-xs"
                       >Editar</button>
+                    )}
                     )}
                   </div>
                 )}
@@ -628,7 +643,7 @@ function TicketDetail({ user }) {
                 ) : (
                   <div className="flex items-center gap-2">
                     <dd className="font-medium">{ticket.group.name}</dd>
-                    {(user.role === 'PASTORA' || user.role === 'ADMIN') && (
+                    {(user.role === 'PASTORA' || user.role === 'ADMIN' || isLeader) && (
                       <button
                         onClick={() => {
                           setEditGroupId(ticket.group.id);

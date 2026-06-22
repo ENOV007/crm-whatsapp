@@ -29,6 +29,7 @@ function PastoraPanel({ user }) {
 
   const getStatusText = (status) => {
     const texts = {
+      PENDIENTE_APROBACION: 'Pendiente Aprobación',
       PENDIENTE_PASTORA: 'Pendiente',
       PENDIENTE_REVISION: 'Revisión',
       APROBADO: 'Aprobado',
@@ -41,6 +42,7 @@ function PastoraPanel({ user }) {
 
   const getStatusColor = (status) => {
     const colors = {
+      PENDIENTE_APROBACION: 'bg-orange-100 text-orange-800',
       PENDIENTE_PASTORA: 'bg-yellow-100 text-yellow-800',
       PENDIENTE_REVISION: 'bg-orange-100 text-orange-800',
       APROBADO: 'bg-green-100 text-green-800',
@@ -59,6 +61,7 @@ function PastoraPanel({ user }) {
 
   const stats = [
     { key: null, label: 'Total', count: tickets.length, color: 'text-blue-600', bg: 'hover:bg-blue-50 border-blue-200' },
+    { key: 'PENDIENTE_APROBACION', label: 'Pend. Aprobación', count: tickets.filter(t => t.status === 'PENDIENTE_APROBACION').length, color: 'text-orange-600', bg: 'hover:bg-orange-50 border-orange-200' },
     { key: 'PENDIENTE_PASTORA', label: 'Pendientes', count: tickets.filter(t => t.status === 'PENDIENTE_PASTORA').length, color: 'text-yellow-600', bg: 'hover:bg-yellow-50 border-yellow-200' },
     { key: 'PENDIENTE_REVISION', label: 'Revisión', count: tickets.filter(t => t.status === 'PENDIENTE_REVISION').length, color: 'text-orange-600', bg: 'hover:bg-orange-50 border-orange-200' },
     { key: 'APROBADO', label: 'Aprobados', count: tickets.filter(t => t.status === 'APROBADO').length, color: 'text-green-600', bg: 'hover:bg-green-50 border-green-200' },

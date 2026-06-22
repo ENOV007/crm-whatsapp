@@ -1,6 +1,6 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { auth, isPastora } = require('../middleware/auth');
+const { auth, isPastora, isLeaderOfGroup } = require('../middleware/auth');
 const { sendNewTicketNotification } = require('../services/whatsappNotifications');
 const { sendPushToUser, sendPushToGroup } = require('../services/pushNotifications');
 
@@ -33,6 +33,7 @@ router.post('/', auth, async (req, res) => {
     }
 
     const isPastoraCreator = req.user.role === 'PASTORA';
+    const isLeader = await isLeaderOfGroup(req.user.id, groupId);
     const ticketData = {
       title,
       description,
@@ -41,10 +42,13 @@ router.post('/', auth, async (req, res) => {
       deadline: deadline ? new Date(deadline) : null
     };
 
-    if (isPastoraCreator) {
+    if (isPastoraCreator || isLeader) {
       ticketData.status = 'APROBADO';
       if (visibility) ticketData.visibility = visibility;
       if (priority) ticketData.priority = priority;
+    } else {
+      ticketData.status = 'PENDIENTE_APROBACION';
+      ticketData.visibility = 'PRIVATE';
     }
 
     const ticket = await prisma.ticket.create({
@@ -61,7 +65,7 @@ router.post('/', auth, async (req, res) => {
       }
     });
 
-    if (!isPastoraCreator) {
+    if (!isPastoraCreator && !isLeader) {
       const pastoras = await prisma.user.findMany({
         where: { role: 'PASTORA' },
         select: { id: true }
@@ -72,7 +76,18 @@ router.post('/', auth, async (req, res) => {
           data: {
             userId: pastora.id,
             ticketId: ticket.id,
-            message: `Nueva sugerencia en ${group.name}: "${title}"`
+            message: `Nueva sugerencia en ${group.name}: "${title}" — pendiente de aprobación`
+          }
+        });
+      }
+
+      const leader = group.members.find(m => m.isLeader);
+      if (leader) {
+        await prisma.notification.create({
+          data: {
+            userId: leader.userId,
+            ticketId: ticket.id,
+            message: `Nuevo caso pendiente de aprobación en ${group.name}: "${title}"`
           }
         });
       }
@@ -272,19 +287,15 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Update ticket (pastora or admin)
+// Update ticket (pastora, admin, or leader of the ticket's group)
 router.patch('/:id', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'PASTORA' && req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Solo pastora o admin pueden editar tickets.' });
-    }
-
     const { id } = req.params;
     const { status, deadline, priority, visibility, viewerIds, groupId } = req.body;
 
     const validPriorities = ['ALTA', 'MEDIA', 'BAJA'];
     const validVisibilities = ['INICIAL', 'PRIVATE', 'PUBLIC', 'USER_SPECIFIC'];
-    const validStatuses = ['PENDIENTE_PASTORA', 'PENDIENTE_REVISION', 'APROBADO', 'RECHAZADO', 'EN_PROGRESO', 'COMPLETADO'];
+    const validStatuses = ['PENDIENTE_APROBACION', 'PENDIENTE_PASTORA', 'PENDIENTE_REVISION', 'APROBADO', 'RECHAZADO', 'EN_PROGRESO', 'COMPLETADO'];
 
     const currentTicket = await prisma.ticket.findUnique({
       where: { id },
@@ -293,6 +304,17 @@ router.patch('/:id', auth, async (req, res) => {
 
     if (!currentTicket) {
       return res.status(404).json({ error: 'Ticket no encontrado.' });
+    }
+
+    const isPastoraOrAdmin = req.user.role === 'PASTORA' || req.user.role === 'ADMIN';
+    const isTicketLeader = await isLeaderOfGroup(req.user.id, currentTicket.groupId);
+
+    if (!isPastoraOrAdmin && !isTicketLeader) {
+      return res.status(403).json({ error: 'No tienes permisos para modificar este ticket.' });
+    }
+
+    if (!isPastoraOrAdmin && isTicketLeader && currentTicket.status !== 'PENDIENTE_APROBACION') {
+      return res.status(403).json({ error: 'Solo puedes modificar tickets pendientes de aprobación.' });
     }
 
     const updateData = {};
@@ -304,6 +326,7 @@ router.patch('/:id', auth, async (req, res) => {
 
     if (status === 'RECHAZADO') {
       updateData.visibility = 'INICIAL';
+      updateData.autoDeleteAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       await prisma.ticketViewer.deleteMany({ where: { ticketId: id } });
     }
 
@@ -403,18 +426,30 @@ router.patch('/:id', auth, async (req, res) => {
   }
 });
 
-// Move ticket to another group (pastora or admin only)
+// Move ticket to another group (pastora, admin, or leader of the ticket's group)
 router.patch('/:id/move', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'PASTORA' && req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Solo pastora o admin pueden mover tickets.' });
-    }
-
     const { id } = req.params;
     const { groupId, visibility, assignedUserId } = req.body;
 
     if (!groupId) {
       return res.status(400).json({ error: 'Debes seleccionar un grupo destino.' });
+    }
+
+    const ticket = await prisma.ticket.findUnique({ where: { id } });
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket no encontrado.' });
+    }
+
+    const isPastoraOrAdmin = req.user.role === 'PASTORA' || req.user.role === 'ADMIN';
+    const isTicketLeader = await isLeaderOfGroup(req.user.id, ticket.groupId);
+
+    if (!isPastoraOrAdmin && !isTicketLeader) {
+      return res.status(403).json({ error: 'No tienes permisos para mover este ticket.' });
+    }
+
+    if (!isPastoraOrAdmin && isTicketLeader && ticket.status !== 'PENDIENTE_APROBACION') {
+      return res.status(403).json({ error: 'Solo puedes mover tickets pendientes de aprobación.' });
     }
 
     const targetGroup = await prisma.group.findUnique({ where: { id: groupId } });
@@ -423,11 +458,6 @@ router.patch('/:id/move', auth, async (req, res) => {
     }
     if (targetGroup.isPersonal) {
       return res.status(403).json({ error: 'No se pueden mover tickets a un grupo personal.' });
-    }
-
-    const ticket = await prisma.ticket.findUnique({ where: { id } });
-    if (!ticket) {
-      return res.status(404).json({ error: 'Ticket no encontrado.' });
     }
 
     const updateData = { groupId };
