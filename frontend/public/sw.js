@@ -5,8 +5,8 @@ self.addEventListener('push', function(event) {
 
   const options = {
     body: data.body || '',
-    icon: data.icon || '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: data.icon || '/icon-notification.png',
+    badge: '/icon-notification.png',
     vibrate: [200, 100, 200],
     data: { url: data.url || '/' },
     actions: [

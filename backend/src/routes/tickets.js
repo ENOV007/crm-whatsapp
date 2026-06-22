@@ -113,14 +113,14 @@ router.post('/', auth, async (req, res) => {
         title: `📋 Nuevo ticket: ${title}`,
         body: `✅ Aprobado por ${req.user.name} en ${group.name}`,
         url: `/tickets/${ticket.id}`,
-        icon: '/icon-192.png'
+        icon: '/icon-notification.png'
       }).catch(err => console.error('Push notification failed:', err.message));
     } else {
       sendPushToGroup(groupId, {
         title: `💡 Nueva sugerencia: ${title}`,
         body: `⏳ En ${group.name} — esperando revisión de la pastora`,
         url: `/tickets/${ticket.id}`,
-        icon: '/icon-192.png'
+        icon: '/icon-notification.png'
       }, req.user.id).catch(err => console.error('Push notification failed:', err.message));
     }
 
@@ -412,7 +412,7 @@ router.patch('/:id', auth, async (req, res) => {
         title: `${emoji} Ticket ${statusMessages[status]}`,
         body: `"${ticket.title}" ha cambiado a ${statusMessages[status]}`,
         url: `/tickets/${ticket.id}`,
-        icon: '/icon-192.png'
+        icon: '/icon-notification.png'
       };
       for (const userId of notifyUserIds) {
         sendPushToUser(userId, pushPayload).catch(() => {});
@@ -491,7 +491,7 @@ router.patch('/:id/move', auth, async (req, res) => {
         title: `📦 Ticket asignado`,
         body: `"${ticket.title}" en el grupo ${targetGroup.name}`,
         url: `/tickets/${id}`,
-        icon: '/icon-192.png'
+        icon: '/icon-notification.png'
       }).catch(() => {});
     }
 
@@ -512,7 +512,7 @@ router.patch('/:id/move', auth, async (req, res) => {
         title: `🔀 Ticket movido`,
         body: `"${ticket.title}" → ${targetGroup.name}`,
         url: `/tickets/${id}`,
-        icon: '/icon-192.png'
+        icon: '/icon-notification.png'
       }).catch(() => {});
     }
 
@@ -616,7 +616,7 @@ router.post('/:ticketId/comments/:commentId/request-review', auth, async (req, r
         title: `🔍 Revisión solicitada`,
         body: `${req.user.name} pide revisión de un comentario`,
         url: `/tickets/${ticketId}`,
-        icon: '/icon-192.png'
+        icon: '/icon-notification.png'
       }).catch(() => {});
     }
 
@@ -706,7 +706,7 @@ router.patch('/:ticketId/comments/:commentId/review', auth, async (req, res) => 
           title: `📨 Comentario enviado a revisión`,
           body: `${req.user.name} en "${comment.ticket.title}"`,
           url: `/tickets/${ticketId}`,
-          icon: '/icon-192.png'
+          icon: '/icon-notification.png'
         }).catch(() => {});
       }
     } else {
@@ -723,7 +723,7 @@ router.patch('/:ticketId/comments/:commentId/review', auth, async (req, res) => 
         title: `${emoji} Comentario ${text}`,
         body: `Por ${req.user.name} en "${comment.ticket.title}"`,
         url: `/tickets/${ticketId}`,
-        icon: '/icon-192.png'
+        icon: '/icon-notification.png'
       }).catch(() => {});
     }
 
