@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { notificationsAPI } from '../services/api';
+import { subscribeToPush } from '../services/pushManager';
 
 function Navbar({ user, onLogout }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [pushEnabled, setPushEnabled] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,6 +30,11 @@ function Navbar({ user, onLogout }) {
       const res = await notificationsAPI.getAll({ unread: 'true' });
       setNotifications(res.data);
       setShowNotifications(!showNotifications);
+      if (!pushEnabled) {
+        subscribeToPush().then(sub => {
+          if (sub) setPushEnabled(true);
+        }).catch(() => {});
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
